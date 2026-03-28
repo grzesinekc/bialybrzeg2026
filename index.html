@@ -1,589 +1,347 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { initializeApp } from 'firebase/app';
-import { 
-  getFirestore, 
-  collection, 
-  addDoc, 
-  onSnapshot, 
-  doc, 
-  setDoc,
-  deleteDoc,
-  query
-} from 'firebase/firestore';
-import { 
-  getAuth, 
-  signInAnonymously, 
-  onAuthStateChanged 
-} from 'firebase/auth';
-import { 
-  Clock, 
-  Calendar, 
-  MapPin, 
-  Utensils, 
-  Phone, 
-  Compass, 
-  Plus, 
-  Trash2, 
-  Tent,
-  Users,
-  Lock,
-  Unlock,
-  CheckCircle2,
-  Home,
-  ChevronRight,
-  AlertCircle,
-  Bell
-} from 'lucide-react';
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stanica Biały Brzeg 2026</title>
+    <!-- Biblioteki -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, collection, addDoc, onSnapshot, doc, setDoc, deleteDoc, query } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
-// --- TWOJA KONFIGURACJA FIREBASE ---
-// Wklej tutaj swoje dane z Firebase Console -> Project Settings
-// Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
+        // Konfiguracja pobrana z Twojego zrzutu ekranu
+        const firebaseConfig = {
+            apiKey: "AIzaSyCauw7c_x7mhypk9bYQ0nxADiToXHnJjY",
+            authDomain: "stanica-bialy-brzeg.firebaseapp.com",
+            projectId: "stanica-bialy-brzeg",
+            storageBucket: "stanica-bialy-brzeg.firebasestorage.app",
+            messagingSenderId: "861747237880",
+            appId: "1:861747237880:web:7d3ce04c6250381043fc0d",
+            measurementId: "G-CF6C1FX1C7"
+        };
 
-// Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
-const firebaseConfig = {
-  apiKey: "AIzaSyCauw7c_x7mhypkg9bYQ0NxADiToXHnjJY",
-  authDomain: "stanica-bialy-brzeg.firebaseapp.com",
-  projectId: "stanica-bialy-brzeg",
-  storageBucket: "stanica-bialy-brzeg.firebasestorage.app",
-  messagingSenderId: "861747237880",
-  appId: "1:861747237880:web:7d3ce04c6250381043fc0d",
-  measurementId: "G-CF6C1FX1C7"
-};
+        // Udostępnienie Firebase dla Reacta
+        window.fb = { 
+            initializeApp, getFirestore, collection, addDoc, onSnapshot, 
+            doc, setDoc, deleteDoc, query, getAuth, signInAnonymously, 
+            onAuthStateChanged, firebaseConfig 
+        };
+    </script>
+</head>
+<body class="bg-[#fcfbf7]">
+    <div id="root"></div>
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
+    <script type="text/babel">
+        const { useState, useEffect, useMemo } = React;
 
-// Inicjalizacja Firebase (tylko jeśli podano poprawne dane, inaczej używamy mocków dla podglądu)
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-const appId = 'bialy-brzeg-2026-v1';
+        const LOCATIONS = ["STOŁÓWKA", "DUŻA WIATA", "ŚWIETLICA DOLNA", "ŚWIETLICA GÓRNA", "ALTANKA 1", "ALTANKA 2", "ALTANKA 3", "ALTANKA 4"];
+        const COMMANDANT_PASSWORD = "1BialyBrzeg1";
 
-const LOCATIONS = [
-  "STOŁÓWKA", "DUŻA WIATA", "ŚWIETLICA DOLNA", "ŚWIETLICA GÓRNA", 
-  "ALTANKA 1", "ALTANKA 2", "ALTANKA 3", "ALTANKA 4"
-];
+        function App() {
+            const [activeTab, setActiveTab] = useState('home');
+            const [currentTime, setCurrentTime] = useState(new Date());
+            const [reservations, setReservations] = useState([]);
+            const [extraContent, setExtraContent] = useState({ jadlospis: '', kontakt: '', wycieczki: '' });
+            const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
+            const [isJadlospisEditing, setIsJadlospisEditing] = useState(false);
+            const [passwordInput, setPasswordInput] = useState('');
+            const [db, setDb] = useState(null);
+            const [user, setUser] = useState(null);
+            const [error, setError] = useState(null);
 
-const COMMANDANT_PASSWORD = "1BialyBrzeg1";
+            const [formData, setFormData] = useState({
+                location: LOCATIONS[0], group: '', timeStart: '', timeEnd: '',
+                date: new Date().toISOString().split('T')[0]
+            });
 
-export default function App() {
-  const [user, setUser] = useState(null);
-  const [activeTab, setActiveTab] = useState('home');
-  const [currentTime, setCurrentTime] = useState(new Date());
-  const [reservations, setReservations] = useState([]);
-  const [extraContent, setExtraContent] = useState({ jadlospis: '', kontakt: '', wycieczki: '' });
-  const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
-  const [loading, setLoading] = useState(true);
-  
-  // Stany autoryzacji jadłospisu
-  const [isJadlospisEditing, setIsJadlospisEditing] = useState(false);
-  const [passwordInput, setPasswordInput] = useState('');
-  const [passError, setPassError] = useState(false);
+            // Inicjalizacja Firebase z obsługą błędów
+            useEffect(() => {
+                const initFirebase = async () => {
+                    const checkInterval = setInterval(async () => {
+                        if (window.fb) {
+                            clearInterval(checkInterval);
+                            try {
+                                const app = window.fb.initializeApp(window.fb.firebaseConfig);
+                                const database = window.fb.getFirestore(app);
+                                const auth = window.fb.getAuth(app);
+                                setDb(database);
 
-  // Stan formularza rezerwacji
-  const [formData, setFormData] = useState({
-    location: LOCATIONS[0],
-    group: '',
-    timeStart: '',
-    timeEnd: '',
-    date: new Date().toISOString().split('T')[0]
-  });
+                                // Próba logowania anonimowego
+                                const cred = await window.fb.signInAnonymously(auth);
+                                setUser(cred.user);
+                            } catch (err) {
+                                console.error("Firebase Init Error:", err);
+                                setError("Błąd Firebase: " + err.message + ". Upewnij się, że klucz API jest poprawny i logowanie anonimowe jest włączone w konsoli Firebase.");
+                            }
+                        }
+                    }, 100);
+                };
+                initFirebase();
+            }, []);
 
-  // 1. Inicjalizacja Auth
-  useEffect(() => {
-    const initAuth = async () => {
-      try {
-        await signInAnonymously(auth);
-      } catch (err) {
-        console.error("Auth error:", err);
-      }
-    };
-    initAuth();
-    const unsubscribe = onAuthStateChanged(auth, setUser);
-    return () => unsubscribe();
-  }, []);
-
-  // 2. Zegar czasu rzeczywistego
-  useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  // 3. Synchronizacja z Bazą Danych (Firestore)
-  useEffect(() => {
-    if (!user) return;
-
-    // Słuchacz rezerwacji
-    const resCol = collection(db, 'reservations');
-    const unsubRes = onSnapshot(resCol, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setReservations(data);
-      setLoading(false);
-    }, (err) => console.log("Czekam na konfigurację bazy..."));
-
-    // Słuchacz treści (jadłospis, kontakt, wycieczki)
-    const contentDoc = doc(db, 'content', 'main');
-    const unsubContent = onSnapshot(contentDoc, (snapshot) => {
-      if (snapshot.exists()) {
-        setExtraContent(snapshot.data());
-      }
-    });
-
-    return () => {
-      unsubRes();
-      unsubContent();
-    };
-  }, [user]);
-
-  // Kalkulacja danych na Dashboard
-  const todayStr = new Date().toISOString().split('T')[0];
-  const todaysReservations = useMemo(() => {
-    return reservations
-      .filter(r => r.date === todayStr)
-      .sort((a, b) => a.timeStart.localeCompare(b.timeStart));
-  }, [reservations, todayStr]);
-
-  // Funkcje obsługi bazy
-  const handleAddReservation = async (e) => {
-    e.preventDefault();
-    if (!user || !formData.group) return;
-    try {
-      await addDoc(collection(db, 'reservations'), {
-        ...formData,
-        userId: user.uid,
-        createdAt: new Date().toISOString()
-      });
-      setIsBookingModalOpen(false);
-      setFormData({ ...formData, group: '', timeStart: '', timeEnd: '' });
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const handleDeleteReservation = async (id) => {
-    try {
-      await deleteDoc(doc(db, 'reservations', id));
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const handleUpdateContent = async (key, value) => {
-    if (!user) return;
-    const contentDoc = doc(db, 'content', 'main');
-    await setDoc(contentDoc, { ...extraContent, [key]: value }, { merge: true });
-  };
-
-  const checkPassword = (e) => {
-    e.preventDefault();
-    if (passwordInput === COMMANDANT_PASSWORD) {
-      setIsJadlospisEditing(true);
-      setPassError(false);
-    } else {
-      setPassError(true);
-      setTimeout(() => setPassError(false), 2000);
-    }
-  };
-
-  return (
-    <div className="min-h-screen bg-[#fcfbf7] text-slate-900 font-sans pb-24 selection:bg-emerald-200">
-      
-      {/* NAGŁÓWEK (HERO) */}
-      <header className="bg-emerald-950 text-white relative overflow-hidden pt-12 pb-24 px-6">
-        <div className="absolute inset-0 opacity-10 pointer-events-none">
-          <div className="absolute top-10 left-10"><Tent size={120} /></div>
-          <div className="absolute bottom-10 right-10"><Compass size={150} /></div>
-        </div>
-        
-        <div className="max-w-6xl mx-auto relative z-10 flex flex-col md:flex-row justify-between items-center gap-8">
-          <div className="text-center md:text-left">
-            <div className="inline-flex items-center gap-2 bg-emerald-800/50 px-4 py-1.5 rounded-full text-[10px] font-black tracking-widest uppercase mb-4 border border-emerald-700">
-              <Bell size={12} className="text-emerald-400" /> Portal Stanicy v2.0
-            </div>
-            <h1 className="text-5xl md:text-7xl font-black tracking-tighter italic leading-none">BIAŁY BRZEG</h1>
-            <p className="text-emerald-200/70 text-lg font-medium max-w-lg mt-4">
-              Zintegrowany system zarządzania Akcją Letnią 2026. Harmonogram i komunikacja w czasie rzeczywistym.
-            </p>
-          </div>
-
-          <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-[2.5rem] p-8 flex flex-col items-center shadow-2xl min-w-[300px]">
-            <div className="text-6xl font-mono font-black text-emerald-400 tracking-tighter">
-              {currentTime.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })}
-              <span className="text-2xl opacity-40 ml-1">:{currentTime.toLocaleTimeString('pl-PL', { second: '2-digit' })}</span>
-            </div>
-            <div className="h-[2px] w-16 bg-emerald-500/30 my-4"></div>
-            <div className="text-xs font-bold uppercase tracking-[0.4em] text-emerald-100/60">
-              {currentTime.toLocaleDateString('pl-PL', { weekday: 'long', day: 'numeric', month: 'long' })}
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* MENU NAWIGACYJNE */}
-      <nav className="max-w-6xl mx-auto -mt-12 px-4 sticky top-4 z-40">
-        <div className="bg-white/95 backdrop-blur-md rounded-[2rem] shadow-2xl border border-emerald-100 p-2 flex overflow-x-auto no-scrollbar gap-1">
-          {[
-            { id: 'home', label: 'Start', icon: Home },
-            { id: 'rezerwacje', label: 'Grafik', icon: MapPin },
-            { id: 'jadlospis', label: 'Jadłospis', icon: Utensils },
-            { id: 'wycieczki', label: 'Wycieczki', icon: Compass },
-            { id: 'kontakt', label: 'Kontakt', icon: Phone },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-6 py-4 rounded-2xl transition-all flex-1 justify-center whitespace-nowrap ${
-                activeTab === tab.id 
-                ? 'bg-emerald-600 text-white shadow-lg scale-[1.02] font-black' 
-                : 'text-emerald-900/50 hover:bg-emerald-50 font-bold'
-              }`}
-            >
-              <tab.icon size={18} />
-              <span className="text-[10px] uppercase tracking-widest">{tab.label}</span>
-            </button>
-          ))}
-        </div>
-      </nav>
-
-      {/* TREŚĆ STRONY */}
-      <main className="max-w-6xl mx-auto p-4 mt-12">
-        
-        {/* WIDOK: START (DASHBOARD) */}
-        {activeTab === 'home' && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-in fade-in duration-700">
-            <div className="lg:col-span-2 space-y-8">
-              <div className="bg-white rounded-[3rem] p-10 shadow-sm border border-emerald-50">
-                <div className="flex justify-between items-center mb-8">
-                  <h2 className="text-3xl font-black text-emerald-950 uppercase tracking-tighter flex items-center gap-3 italic">
-                    <Calendar className="text-emerald-600" /> Dzisiejsze punkty
-                  </h2>
-                  <button onClick={() => setActiveTab('rezerwacje')} className="text-emerald-600 font-bold text-xs uppercase tracking-widest flex items-center gap-1 hover:underline">
-                    Pełny grafik <ChevronRight size={14} />
-                  </button>
-                </div>
+            // Synchronizacja danych
+            useEffect(() => {
+                if (!db || !user) return;
                 
-                <div className="space-y-4">
-                  {todaysReservations.length === 0 ? (
-                    <div className="py-12 bg-slate-50 rounded-3xl text-center text-slate-400 italic font-medium">
-                      Brak zaplanowanych zajęć na dzisiaj.
-                    </div>
-                  ) : (
-                    todaysReservations.map(res => (
-                      <div key={res.id} className="flex items-center justify-between p-5 bg-emerald-50/40 rounded-3xl border border-emerald-100/50">
-                        <div className="flex items-center gap-6">
-                          <div className="text-2xl font-black text-emerald-800 tabular-nums">
-                            {res.timeStart}
-                          </div>
-                          <div>
-                            <div className="font-black text-emerald-950 uppercase tracking-tight text-lg">{res.location}</div>
-                            <div className="text-sm font-bold text-emerald-600/70 italic">{res.group}</div>
-                          </div>
+                const unsubRes = window.fb.onSnapshot(window.fb.collection(db, 'reservations'), (snap) => {
+                    setReservations(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+                }, (err) => setError("Błąd pobierania rezerwacji: " + err.message));
+
+                const unsubContent = window.fb.onSnapshot(window.fb.doc(db, 'content', 'main'), (snap) => {
+                    if (snap.exists()) setExtraContent(snap.data());
+                }, (err) => setError("Błąd pobierania treści: " + err.message));
+
+                return () => { unsubRes(); unsubContent(); };
+            }, [db, user]);
+
+            useEffect(() => {
+                const t = setInterval(() => setCurrentTime(new Date()), 1000);
+                return () => clearInterval(t);
+            }, []);
+
+            const handleAdd = async (e) => {
+                e.preventDefault();
+                try {
+                    await window.fb.addDoc(window.fb.collection(db, 'reservations'), formData);
+                    setIsBookingModalOpen(false);
+                    setFormData({ ...formData, group: '', timeStart: '', timeEnd: '' });
+                } catch (err) {
+                    setError("Nie udało się dodać rezerwacji: " + err.message);
+                }
+            };
+
+            const updateContent = async (key, val) => {
+                try {
+                    await window.fb.setDoc(window.fb.doc(db, 'content', 'main'), { ...extraContent, [key]: val }, { merge: true });
+                } catch (err) {
+                    setError("Błąd zapisu: " + err.message);
+                }
+            };
+
+            const deleteReservation = async (id) => {
+                try {
+                    await window.fb.deleteDoc(window.fb.doc(db, 'reservations', id));
+                } catch (err) {
+                    setError("Błąd usuwania: " + err.message);
+                }
+            }
+
+            if (error) {
+                return (
+                    <div className="min-h-screen bg-red-50 flex items-center justify-center p-6 text-center">
+                        <div className="max-w-md bg-white p-8 rounded-3xl shadow-xl border border-red-200">
+                            <h2 className="text-red-600 font-black text-2xl mb-4 uppercase">Błąd Konfiguracji</h2>
+                            <p className="text-slate-600 mb-6">{error}</p>
+                            <button onClick={() => window.location.reload()} className="bg-red-600 text-white px-6 py-2 rounded-xl font-bold">Odśwież stronę</button>
                         </div>
-                        <div className="bg-white px-4 py-1.5 rounded-full text-[10px] font-black text-emerald-700 shadow-sm border border-emerald-100">DZIŚ</div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-
-              <div className="bg-emerald-900 rounded-[3rem] p-10 text-white shadow-2xl relative overflow-hidden group">
-                <Compass size={150} className="absolute -right-10 -bottom-10 opacity-5 group-hover:rotate-45 transition-transform duration-1000" />
-                <h2 className="text-3xl font-black uppercase mb-6 italic tracking-tighter">Status Wycieczek</h2>
-                <div className="text-emerald-100/80 text-xl font-medium italic whitespace-pre-wrap leading-relaxed line-clamp-3">
-                  {extraContent.wycieczki || "Wszystkie grupy i zastępy zameldowane na terenie stanicy."}
-                </div>
-                <button 
-                  onClick={() => setActiveTab('wycieczki')}
-                  className="mt-8 bg-white text-emerald-950 px-8 py-3 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-emerald-50 transition-all shadow-xl"
-                >
-                  Aktualizuj wyjścia
-                </button>
-              </div>
-            </div>
-
-            <div className="space-y-8">
-              <div className="bg-orange-50 rounded-[3rem] p-10 border border-orange-100 shadow-sm relative overflow-hidden">
-                <Utensils className="absolute -right-4 -top-4 text-orange-100" size={100} />
-                <h3 className="text-xl font-black text-orange-950 uppercase mb-4 italic tracking-tight">Kuchnia informuje</h3>
-                <div className="text-orange-900/70 font-bold italic text-lg leading-relaxed line-clamp-6">
-                  {extraContent.jadlospis || "Menu w trakcie ustalania..."}
-                </div>
-              </div>
-
-              <div className="bg-white rounded-[3rem] p-10 border border-emerald-100 shadow-sm">
-                <h3 className="text-xl font-black text-emerald-950 uppercase mb-6 italic tracking-tight">Alarmowe</h3>
-                <div className="space-y-5">
-                  <div className="flex items-center gap-4">
-                    <div className="p-3 bg-red-100 text-red-600 rounded-2xl"><AlertCircle size={24} /></div>
-                    <div>
-                      <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Służby ratunkowe</div>
-                      <div className="font-black text-2xl tracking-tighter">112</div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <div className="p-3 bg-emerald-100 text-emerald-600 rounded-2xl"><Phone size={24} /></div>
-                    <div>
-                      <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Książka tel.</div>
-                      <button onClick={() => setActiveTab('kontakt')} className="text-sm font-bold text-emerald-700 hover:underline">Otwórz kontakty</button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+                );
+            }
 
-        {/* WIDOK: GRAFIK REZERWACJI */}
-        {activeTab === 'rezerwacje' && (
-          <div className="animate-in slide-in-from-bottom-8 duration-500">
-             <div className="bg-white rounded-[3.5rem] p-8 md:p-12 shadow-2xl border border-emerald-100">
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-8 mb-12">
-                  <div>
-                    <h2 className="text-5xl font-black text-emerald-950 uppercase tracking-tighter italic">Rezerwacja Miejsc</h2>
-                    <p className="text-slate-500 font-medium text-lg mt-2">Zaplanuj czas dla swojej grupy w wyznaczonych punktach stanicy.</p>
-                  </div>
-                  <button 
-                    onClick={() => setIsBookingModalOpen(true)}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white px-10 py-5 rounded-[2rem] flex items-center gap-3 shadow-2xl shadow-emerald-200 transition-all active:scale-95 group"
-                  >
-                    <Plus size={28} className="group-hover:rotate-90 transition-transform duration-300" /> 
-                    <span className="font-black uppercase tracking-widest text-xs">Dodaj rezerwację</span>
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {reservations.length === 0 ? (
-                    <div className="col-span-full py-32 text-center bg-slate-50 rounded-[3rem] border-4 border-dashed border-emerald-50">
-                      <p className="text-emerald-900/20 font-black text-3xl uppercase tracking-[0.4em]">Grafik jest pusty</p>
+            if (!user) {
+                return (
+                    <div className="min-h-screen bg-emerald-900 flex items-center justify-center text-white">
+                        <div className="text-center animate-pulse">
+                            <div className="text-4xl mb-4 italic font-black">BIAŁY BRZEG 2026</div>
+                            <div className="text-xs uppercase tracking-widest opacity-50 font-bold">Inicjalizacja systemu...</div>
+                        </div>
                     </div>
-                  ) : (
-                    reservations
-                      .sort((a, b) => a.date.localeCompare(b.date) || a.timeStart.localeCompare(b.timeStart))
-                      .map((res) => (
-                      <div key={res.id} className="bg-white p-6 rounded-[2.5rem] border border-emerald-50 hover:border-emerald-300 hover:shadow-xl transition-all flex justify-between items-center group">
-                        <div className="flex gap-6">
-                          <div className="flex flex-col items-center justify-center bg-emerald-900 text-emerald-100 w-24 h-24 rounded-3xl font-black shadow-inner">
-                            <span className="text-lg leading-none">{res.timeStart}</span>
-                            <div className="h-0.5 w-4 bg-emerald-500 my-1.5 opacity-50"></div>
-                            <span className="text-lg leading-none">{res.timeEnd}</span>
-                          </div>
-                          <div className="flex flex-col justify-center">
-                            <h3 className="font-black text-emerald-950 text-xl uppercase leading-tight tracking-tighter">{res.location}</h3>
-                            <div className="flex items-center gap-2 text-emerald-600 font-bold mt-1">
-                              <Users size={16} /> {res.group}
+                );
+            }
+
+            return (
+                <div className="min-h-screen pb-20">
+                    <header className="bg-emerald-950 text-white p-8 md:p-12">
+                        <div className="max-w-5xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
+                            <div>
+                                <h1 className="text-4xl font-black italic tracking-tighter">BIAŁY BRZEG 2026</h1>
+                                <p className="text-emerald-400 font-bold uppercase tracking-widest text-xs mt-2 italic">Portal Operacyjny Stanicy</p>
                             </div>
-                            <div className="inline-block bg-slate-100 text-slate-500 text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-full mt-3 w-fit">{res.date}</div>
-                          </div>
+                            <div className="bg-white/5 p-5 rounded-3xl text-center border border-white/10 backdrop-blur-md">
+                                <div className="text-4xl font-mono font-black text-emerald-300 tracking-tighter">
+                                    {currentTime.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                                </div>
+                                <div className="text-[10px] uppercase font-bold opacity-50 mt-1 tracking-widest">
+                                    {currentTime.toLocaleDateString('pl-PL', { weekday: 'long', day: 'numeric', month: 'long' })}
+                                </div>
+                            </div>
                         </div>
-                        <button onClick={() => handleDeleteReservation(res.id)} className="p-5 text-slate-200 hover:text-red-500 hover:bg-red-50 rounded-3xl transition-all">
-                          <Trash2 size={24} />
-                        </button>
-                      </div>
-                    ))
-                  )}
+                    </header>
+
+                    <nav className="max-w-5xl mx-auto -mt-8 px-4 flex gap-1 bg-white shadow-2xl p-2 rounded-3xl overflow-x-auto no-scrollbar">
+                        {['home', 'rezerwacje', 'jadlospis', 'wycieczki', 'kontakt'].map(tab => (
+                            <button key={tab} onClick={() => setActiveTab(tab)} className={`flex-1 py-4 px-6 rounded-2xl font-black text-[10px] uppercase tracking-wider transition-all whitespace-nowrap ${activeTab === tab ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-400 hover:bg-emerald-50'}`}>
+                                {tab === 'home' ? 'Start' : tab}
+                            </button>
+                        ))}
+                    </nav>
+
+                    <main className="max-w-5xl mx-auto p-6 mt-8">
+                        {activeTab === 'home' && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-in fade-in duration-500">
+                                <div className="bg-white p-10 rounded-[3rem] shadow-sm border border-emerald-50">
+                                    <h2 className="text-2xl font-black mb-6 uppercase tracking-tighter flex items-center gap-2 italic">
+                                        <span className="w-2 h-8 bg-emerald-600 rounded-full inline-block"></span>
+                                        Dzisiejszy Grafik
+                                    </h2>
+                                    {reservations.filter(r => r.date === new Date().toISOString().split('T')[0]).length === 0 ? 
+                                        <p className="text-slate-400 italic py-10 text-center">Brak rezerwacji na dziś.</p> : 
+                                        reservations.filter(r => r.date === new Date().toISOString().split('T')[0]).map(r => (
+                                            <div key={r.id} className="p-4 bg-emerald-50/50 border border-emerald-100 rounded-2xl mb-3 flex justify-between items-center group">
+                                                <div>
+                                                    <span className="font-black text-emerald-700 tabular-nums">{r.timeStart} - {r.timeEnd}</span>
+                                                    <div className="uppercase font-black text-emerald-950 text-sm mt-1">{r.location}</div>
+                                                </div>
+                                                <div className="text-[10px] font-black text-emerald-600 bg-white px-3 py-1 rounded-full border border-emerald-100">{r.group}</div>
+                                            </div>
+                                        ))
+                                    }
+                                </div>
+                                <div className="bg-emerald-900 text-white p-10 rounded-[3rem] shadow-2xl relative overflow-hidden group">
+                                    <div className="absolute top-0 right-0 p-10 opacity-10 group-hover:rotate-12 transition-transform duration-700 underline">Stanica</div>
+                                    <h2 className="text-2xl font-black mb-6 uppercase tracking-tighter italic">Dzisiejsze Menu</h2>
+                                    <div className="italic text-emerald-100 text-xl leading-relaxed whitespace-pre-wrap">
+                                        {extraContent.jadlospis || "Menu zostanie wkrótce ogłoszone przez kwatermistrzostwo..."}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {activeTab === 'rezerwacje' && (
+                            <div className="bg-white p-10 rounded-[3rem] shadow-xl border border-emerald-50 animate-in fade-in duration-500">
+                                <div className="flex flex-col md:flex-row justify-between items-center mb-10 gap-4">
+                                    <h2 className="text-3xl font-black uppercase italic tracking-tighter">Planowanie Miejsc</h2>
+                                    <button onClick={() => setIsBookingModalOpen(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white px-8 py-4 rounded-2xl font-black text-xs uppercase shadow-xl transition-all active:scale-95">Dodaj rezerwację</button>
+                                </div>
+                                <div className="space-y-4">
+                                    {reservations.length === 0 ? <p className="text-center py-20 text-slate-300 font-bold uppercase tracking-widest">Pusty grafik</p> : 
+                                        reservations.sort((a,b) => a.date.localeCompare(b.date) || a.timeStart.localeCompare(b.timeStart)).map(res => (
+                                        <div key={res.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-6 bg-slate-50 rounded-3xl hover:bg-emerald-50 transition-colors border border-transparent hover:border-emerald-100 group">
+                                            <div className="mb-4 sm:mb-0">
+                                                <div className="font-black text-emerald-950 uppercase text-xl leading-none">{res.location}</div>
+                                                <div className="text-sm font-bold text-slate-500 mt-1 flex items-center gap-2">
+                                                    <span className="bg-white px-2 py-0.5 rounded-lg border border-slate-200">{res.group}</span>
+                                                    <span className="opacity-50">•</span>
+                                                    <span>{res.date}</span>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-4 w-full sm:w-auto">
+                                                <div className="font-mono font-black text-lg bg-white px-5 py-2 rounded-2xl shadow-sm border border-emerald-100 flex-1 sm:flex-none text-center">
+                                                    {res.timeStart} - {res.timeEnd}
+                                                </div>
+                                                <button onClick={() => deleteReservation(res.id)} className="p-3 text-slate-300 hover:text-red-500 transition-all opacity-0 group-hover:opacity-100">X</button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {activeTab === 'jadlospis' && (
+                            <div className="max-w-3xl mx-auto bg-white p-10 rounded-[3.5rem] shadow-2xl text-center border border-orange-100 animate-in zoom-in-95 duration-500">
+                                <h2 className="text-4xl font-black uppercase mb-8 italic tracking-tighter">Karta Dań</h2>
+                                {!isJadlospisEditing ? (
+                                    <>
+                                        <div className="p-12 bg-orange-50/50 rounded-[2.5rem] italic text-2xl min-h-[300px] mb-8 flex items-center justify-center border border-orange-100 leading-relaxed font-medium">
+                                            {extraContent.jadlospis || "Kuchnia jeszcze przygotowuje dzisiejsze potrawy..."}
+                                        </div>
+                                        <div className="flex flex-col items-center gap-4 bg-slate-50 p-8 rounded-[2rem] border border-slate-200">
+                                            <p className="text-[10px] uppercase font-black tracking-widest text-slate-400">Autoryzacja Komendanta</p>
+                                            <div className="flex gap-2 w-full max-w-xs">
+                                                <input type="password" placeholder="Hasło..." className="flex-1 p-4 bg-white border-2 rounded-2xl outline-none focus:border-emerald-500 font-bold" onChange={e => setPasswordInput(e.target.value)} />
+                                                <button onClick={() => passwordInput === COMMANDANT_PASSWORD ? setIsJadlospisEditing(true) : alert("Nieprawidłowe hasło")} className="bg-slate-900 text-white px-6 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all hover:bg-black">Edytuj</button>
+                                            </div>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <div className="space-y-6">
+                                        <textarea className="w-full h-80 p-10 border-4 border-emerald-100 rounded-[2.5rem] outline-none text-2xl italic font-bold text-center leading-relaxed" value={extraContent.jadlospis} onChange={e => updateContent('jadlospis', e.target.value)} placeholder="Wpisz menu..." />
+                                        <button onClick={() => setIsJadlospisEditing(false)} className="w-full bg-emerald-600 text-white py-5 rounded-2xl font-black uppercase tracking-widest text-lg shadow-xl hover:scale-[1.02] transition-all">Zapisz i Opublikuj</button>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {activeTab === 'wycieczki' && (
+                            <div className="bg-white p-10 rounded-[3rem] shadow-xl border border-blue-100 animate-in fade-in duration-500">
+                                <h2 className="text-3xl font-black uppercase mb-6 italic tracking-tighter">Log Wyjść i Wycieczek</h2>
+                                <p className="text-slate-500 mb-6 font-medium">Zapisuj wszystkie grupy przebywające poza terenem stanicy.</p>
+                                <textarea className="w-full h-96 p-10 bg-blue-50/20 border-2 border-blue-100 rounded-[2.5rem] outline-none font-mono text-xl leading-relaxed font-bold" value={extraContent.wycieczki} onChange={e => updateContent('wycieczki', e.target.value)} placeholder="Godzina, Zastęp, Cel wyjścia, Planowany powrót..." />
+                            </div>
+                        )}
+
+                        {activeTab === 'kontakt' && (
+                            <div className="bg-white p-10 rounded-[3rem] shadow-xl border border-red-100 animate-in fade-in duration-500">
+                                <h2 className="text-3xl font-black uppercase mb-6 italic text-red-600 tracking-tighter">Książka Telefoniczna</h2>
+                                <textarea className="w-full h-96 p-10 bg-red-50/20 border-2 border-red-100 rounded-[2.5rem] outline-none font-black text-xl text-red-900 leading-relaxed" value={extraContent.kontakt} onChange={e => updateContent('kontakt', e.target.value)} placeholder="Ważne numery telefonów do kadry i służb..." />
+                            </div>
+                        )}
+                    </main>
+
+                    {/* MODAL NOWEJ REZERWACJI */}
+                    {isBookingModalOpen && (
+                        <div className="fixed inset-0 bg-emerald-950/90 backdrop-blur-xl z-[100] flex items-center justify-center p-4 overflow-y-auto">
+                            <div className="bg-white w-full max-w-xl rounded-[3.5rem] shadow-2xl p-10 my-auto">
+                                <h2 className="text-3xl font-black uppercase mb-8 italic tracking-tighter">Rezerwacja Miejsca</h2>
+                                <form onSubmit={handleAdd} className="space-y-6">
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-emerald-900 ml-4">Lokalizacja</label>
+                                        <select className="w-full p-5 bg-slate-50 rounded-2xl border-none font-black text-lg appearance-none cursor-pointer" value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})}>
+                                            {LOCATIONS.map(l => <option key={l} value={l}>{l}</option>)}
+                                        </select>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-emerald-900 ml-4">Nazwa Grupy / Zastępu</label>
+                                        <input className="w-full p-5 bg-slate-50 rounded-2xl border-none font-black text-lg" placeholder="Np. 23 DH Iskierki" required onChange={e => setFormData({...formData, group: e.target.value})} />
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-6">
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-black uppercase tracking-widest text-emerald-900 text-center block">Od godziny</label>
+                                            <input type="time" className="w-full p-5 bg-slate-50 rounded-2xl border-none font-black text-2xl text-center" required onChange={e => setFormData({...formData, timeStart: e.target.value})} />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-black uppercase tracking-widest text-emerald-900 text-center block">Do godziny</label>
+                                            <input type="time" className="w-full p-5 bg-slate-50 rounded-2xl border-none font-black text-2xl text-center" required onChange={e => setFormData({...formData, timeEnd: e.target.value})} />
+                                        </div>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-emerald-900 ml-4">Data</label>
+                                        <input type="date" className="w-full p-5 bg-slate-50 rounded-2xl border-none font-black text-lg" required value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} />
+                                    </div>
+                                    <div className="flex gap-4 pt-4">
+                                        <button type="button" onClick={() => setIsBookingModalOpen(false)} className="flex-1 p-5 font-black uppercase tracking-widest text-xs text-slate-400">Anuluj</button>
+                                        <button type="submit" className="flex-[2] bg-emerald-600 text-white p-5 rounded-2xl font-black uppercase tracking-widest text-lg shadow-xl shadow-emerald-100 active:scale-95 transition-all">Zapisz Grafik</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    )}
+
+                    <footer className="fixed bottom-6 left-0 right-0 flex justify-center pointer-events-none z-50">
+                        <div className="bg-emerald-950/90 backdrop-blur-md text-white px-8 py-3 rounded-full text-[10px] font-black uppercase tracking-[0.4em] shadow-2xl border border-white/10 pointer-events-auto flex items-center gap-3">
+                            <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]"></span>
+                            Biały Brzeg 2026 • Live Data Sync
+                        </div>
+                    </footer>
                 </div>
-             </div>
-          </div>
-        )}
+            );
+        }
 
-        {/* WIDOK: JADŁOSPIS (HASŁO) */}
-        {activeTab === 'jadlospis' && (
-          <div className="max-w-4xl mx-auto bg-white rounded-[4rem] shadow-2xl p-12 border border-orange-100 animate-in zoom-in-95 duration-500">
-            <div className="flex flex-col items-center text-center mb-12">
-              <div className="p-8 bg-orange-100 rounded-[2.5rem] text-orange-600 mb-6 shadow-inner">
-                <Utensils size={48} />
-              </div>
-              <h2 className="text-5xl font-black text-slate-900 uppercase tracking-tighter italic">Karta Dań</h2>
-              <p className="text-slate-500 font-medium text-lg mt-2">Menu serwowane przez kuchnię Stanicy Biały Brzeg</p>
-            </div>
-
-            <div className="relative">
-              {!isJadlospisEditing ? (
-                <div className="space-y-10">
-                  <div className="p-12 bg-orange-50/50 rounded-[3.5rem] border-2 border-orange-100 min-h-[400px] whitespace-pre-wrap text-3xl text-slate-800 italic leading-relaxed text-center font-semibold shadow-inner flex items-center justify-center">
-                    {extraContent.jadlospis || "Dzisiejsze menu nie zostało jeszcze ogłoszone przez kwatermistrzostwo."}
-                  </div>
-                  
-                  <form onSubmit={checkPassword} className="mt-12 flex flex-col items-center bg-slate-50 p-10 rounded-[3rem] border border-slate-200">
-                    <div className="flex items-center gap-4 w-full max-w-sm mb-6">
-                      <Lock className="text-slate-400" size={24} />
-                      <input 
-                        type="password" 
-                        placeholder="Hasło komendanta..." 
-                        className={`w-full p-5 bg-white border-2 rounded-2xl outline-none transition-all text-xl font-bold ${passError ? 'border-red-500 animate-shake' : 'border-slate-100 focus:border-emerald-500'}`}
-                        value={passwordInput}
-                        onChange={(e) => setPasswordInput(e.target.value)}
-                      />
-                    </div>
-                    <button type="submit" className="bg-slate-900 text-white px-12 py-5 rounded-2xl font-black text-xs uppercase tracking-[0.3em] hover:bg-black transition-all shadow-xl">
-                      Autoryzuj edycję jadłospisu
-                    </button>
-                    {passError && <p className="text-red-500 font-bold text-xs mt-4 uppercase tracking-widest">Niepoprawne hasło!</p>}
-                  </form>
-                </div>
-              ) : (
-                <div className="space-y-8">
-                  <div className="bg-emerald-100 text-emerald-800 px-8 py-4 rounded-3xl flex items-center justify-center gap-3 font-black text-sm uppercase tracking-widest shadow-sm border border-emerald-200">
-                    <Unlock size={20} /> Autoryzacja: Komendant
-                  </div>
-                  <textarea 
-                    autoFocus
-                    value={extraContent.jadlospis}
-                    onChange={(e) => handleUpdateContent('jadlospis', e.target.value)}
-                    className="w-full h-[500px] p-12 rounded-[3.5rem] bg-white border-8 border-emerald-50 focus:border-emerald-500 outline-none text-3xl resize-none font-bold text-center italic shadow-2xl"
-                    placeholder="Wpisz dzisiejsze potrawy (Śniadanie, Obiad, Kolacja)..."
-                  />
-                  <button 
-                    onClick={() => { setIsJadlospisEditing(false); setPasswordInput(''); }}
-                    className="w-full bg-emerald-600 text-white py-6 rounded-3xl font-black text-xl uppercase tracking-[0.2em] shadow-2xl hover:bg-emerald-700 transition-all hover:scale-[1.01] active:scale-95"
-                  >
-                    Zapisz i zakończ edycję
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* WIDOK: WYCIECZKI / WYJŚCIA */}
-        {activeTab === 'wycieczki' && (
-          <div className="bg-white rounded-[4rem] shadow-xl p-12 border border-blue-100 animate-in fade-in duration-500">
-            <div className="flex items-center gap-6 mb-10">
-              <div className="p-6 bg-blue-100 rounded-[2rem] text-blue-600 shadow-inner">
-                <Compass size={40} />
-              </div>
-              <div>
-                <h2 className="text-4xl font-black text-slate-900 uppercase tracking-tighter italic">Log Wycieczek</h2>
-                <p className="text-slate-500 font-medium text-lg">Rejestr grup przebywających poza terenem stanicy</p>
-              </div>
-            </div>
-            <textarea 
-              value={extraContent.wycieczki}
-              onChange={(e) => handleUpdateContent('wycieczki', e.target.value)}
-              placeholder="Godzina wyjścia, grupa, cel, planowany powrót..."
-              className="w-full h-[600px] p-12 rounded-[3.5rem] bg-blue-50/20 border-2 border-blue-100 focus:border-blue-500 outline-none text-2xl resize-none font-mono font-bold leading-relaxed"
-            />
-          </div>
-        )}
-
-        {/* WIDOK: KONTAKT */}
-        {activeTab === 'kontakt' && (
-          <div className="bg-white rounded-[4rem] shadow-xl p-12 border border-red-100 animate-in slide-in-from-right-12 duration-500">
-            <div className="flex items-center gap-6 mb-10">
-              <div className="p-6 bg-red-100 rounded-[2rem] text-red-600 shadow-inner">
-                <Phone size={40} />
-              </div>
-              <div>
-                <h2 className="text-4xl font-black text-slate-900 uppercase tracking-tighter italic">Książka Tel.</h2>
-                <p className="text-slate-500 font-medium text-lg">Kadra, obsługa stanicy i służby</p>
-              </div>
-            </div>
-            <textarea 
-              value={extraContent.kontakt}
-              onChange={(e) => handleUpdateContent('kontakt', e.target.value)}
-              placeholder="Wpisz najważniejsze numery telefonów..."
-              className="w-full h-[600px] p-12 rounded-[3.5rem] bg-red-50/20 border-2 border-red-100 focus:border-red-500 outline-none text-2xl resize-none font-black text-red-900"
-            />
-          </div>
-        )}
-      </main>
-
-      {/* MODAL: DODAWANIE REZERWACJI */}
-      {isBookingModalOpen && (
-        <div className="fixed inset-0 bg-emerald-950/95 backdrop-blur-2xl z-[100] flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-2xl rounded-[4rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
-            <div className="bg-emerald-800 p-12 text-white flex justify-between items-center relative">
-               <div className="absolute top-0 right-0 p-8 opacity-10"><Tent size={120} /></div>
-              <div className="relative z-10">
-                <h2 className="text-4xl font-black uppercase tracking-tighter italic">Nowy wpis</h2>
-                <p className="text-emerald-200/60 font-bold text-xs uppercase tracking-widest mt-2">Zajęcie miejsca programowego</p>
-              </div>
-              <button onClick={() => setIsBookingModalOpen(false)} className="bg-white/10 hover:bg-white/20 p-4 rounded-full transition-colors font-black relative z-10">X</button>
-            </div>
-            <form onSubmit={handleAddReservation} className="p-12 space-y-8">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-emerald-900 uppercase ml-4 tracking-widest">Lokalizacja</label>
-                  <select 
-                    className="w-full p-6 rounded-3xl border-2 border-emerald-50 bg-emerald-50/30 outline-none focus:border-emerald-500 font-black text-emerald-900 text-lg appearance-none"
-                    value={formData.location}
-                    onChange={(e) => setFormData({...formData, location: e.target.value})}
-                  >
-                    {LOCATIONS.map(loc => <option key={loc} value={loc}>{loc}</option>)}
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-emerald-900 uppercase ml-4 tracking-widest">Nazwa grupy</label>
-                  <input 
-                    type="text" 
-                    required
-                    placeholder="np. 12 DH 'Iskra'"
-                    className="w-full p-6 rounded-3xl border-2 border-emerald-50 bg-emerald-50/30 outline-none focus:border-emerald-500 font-black text-lg"
-                    value={formData.group}
-                    onChange={(e) => setFormData({...formData, group: e.target.value})}
-                  />
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-8">
-                <div className="space-y-2 text-center">
-                  <label className="text-[10px] font-black text-emerald-900 uppercase tracking-widest">Od godziny</label>
-                  <input type="time" required className="w-full p-6 rounded-3xl border-2 border-emerald-50 bg-emerald-50/30 font-black text-2xl outline-none focus:border-emerald-500 text-center"
-                    value={formData.timeStart} onChange={(e) => setFormData({...formData, timeStart: e.target.value})} />
-                </div>
-                <div className="space-y-2 text-center">
-                  <label className="text-[10px] font-black text-emerald-900 uppercase tracking-widest">Do godziny</label>
-                  <input type="time" required className="w-full p-6 rounded-3xl border-2 border-emerald-50 bg-emerald-50/30 font-black text-2xl outline-none focus:border-emerald-500 text-center"
-                    value={formData.timeEnd} onChange={(e) => setFormData({...formData, timeEnd: e.target.value})} />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-emerald-900 uppercase ml-4 tracking-widest">Data zajęć</label>
-                <input type="date" required className="w-full p-6 rounded-3xl border-2 border-emerald-50 bg-emerald-50/30 font-bold outline-none focus:border-emerald-500 text-lg"
-                  value={formData.date} onChange={(e) => setFormData({...formData, date: e.target.value})} />
-              </div>
-
-              <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-7 rounded-[2.5rem] font-black text-2xl shadow-2xl transition-all active:scale-95 uppercase tracking-[0.3em] mt-6">
-                Zatwierdź grafik
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* STOPKA (FLOATING) */}
-      <footer className="fixed bottom-0 left-0 right-0 p-6 pointer-events-none z-50">
-        <div className="max-w-md mx-auto bg-emerald-950/90 backdrop-blur-xl text-white rounded-full px-10 py-4 flex items-center justify-between shadow-2xl pointer-events-auto border border-white/10">
-          <div className="flex items-center gap-3">
-             <div className="w-3 h-3 bg-emerald-400 rounded-full animate-pulse shadow-[0_0_10px_rgba(52,211,153,0.8)]"></div>
-             <span className="text-[10px] font-black uppercase tracking-[0.2em]">Live Sync Active</span>
-          </div>
-          <div className="text-[9px] font-black uppercase tracking-[0.4em] opacity-40 italic">
-            ZHP Radomsko • Biały Brzeg
-          </div>
-        </div>
-      </footer>
-
-      {/* STYLE ANIMACJI */}
-      <style>{`
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+    <style>
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        @keyframes shake {
-          0%, 100% { transform: translateX(0); }
-          25% { transform: translateX(-8px); }
-          75% { transform: translateX(8px); }
-        }
-        .animate-shake { animation: shake 0.15s ease-in-out 0s 2; }
-        @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes fade-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .animate-in { animation: fade-in 0.5s ease-out forwards; }
-      `}</style>
-    </div>
-  );
-}
+    </style>
+</body>
+</html>
