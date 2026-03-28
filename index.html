@@ -4,30 +4,29 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Stanica Biały Brzeg 2026</title>
-    <!-- Biblioteki -->
+    <!-- Biblioteki podstawowe -->
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     
+    <!-- Moduły Firebase -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getFirestore, collection, addDoc, onSnapshot, doc, setDoc, deleteDoc, query } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
-        // Konfiguracja pobrana z Twojego zrzutu ekranu
-       const firebaseConfig = {
-  apiKey: "AIzaSyCauw7c_x7mhypkg9bYQ0NxADiToXHnjJY",
-  authDomain: "stanica-bialy-brzeg.firebaseapp.com",
-  projectId: "stanica-bialy-brzeg",
-  storageBucket: "stanica-bialy-brzeg.firebasestorage.app",
-  messagingSenderId: "861747237880",
-  appId: "1:861747237880:web:7d3ce04c6250381043fc0d",
-  measurementId: "G-CF6C1FX1C7"
-};
+        const firebaseConfig = {
+            apiKey: "AIzaSyCauw7c_x7mhypk9bYQ0nxADiToXHnJjY",
+            authDomain: "stanica-bialy-brzeg.firebaseapp.com",
+            projectId: "stanica-bialy-brzeg",
+            storageBucket: "stanica-bialy-brzeg.firebasestorage.app",
+            messagingSenderId: "861747237880",
+            appId: "1:861747237880:web:7d3ce04c6250381043fc0d",
+            measurementId: "G-CF6C1FX1C7"
+        };
 
-        // Udostępnienie Firebase dla Reacta
         window.fb = { 
             initializeApp, getFirestore, collection, addDoc, onSnapshot, 
             doc, setDoc, deleteDoc, query, getAuth, signInAnonymously, 
@@ -42,7 +41,17 @@
         const { useState, useEffect, useMemo } = React;
 
         const LOCATIONS = ["STOŁÓWKA", "DUŻA WIATA", "ŚWIETLICA DOLNA", "ŚWIETLICA GÓRNA", "ALTANKA 1", "ALTANKA 2", "ALTANKA 3", "ALTANKA 4"];
-        const COMMANDANT_PASSWORD = "1BialyBrzeg1";
+        const COMMANDANT_HASH = "8e04e9c7167527027d7e368147d34551a3d90f23078a66a16616086f6d0f1a96";
+        
+        const IMG_HEADER = "https://www.dropbox.com/scl/fi/h35st6ucsgr0vfaqk599p/IDENTYFIKATOR_BEZ-TEKSTU.png?rlkey=ql6aybqsctxferab69ozyhha9&st=g6ywzqam&dl=1";
+        const IMG_LOGO = "https://www.dropbox.com/scl/fi/zr8lckek34w630una7jgc/logo-BB.jpg?rlkey=i605zzig81x7l8ji5yhyyiu5y&st=mrxsxpti&dl=1";
+
+        async function sha256(message) {
+            const msgBuffer = new TextEncoder().encode(message);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        }
 
         function App() {
             const [activeTab, setActiveTab] = useState('home');
@@ -55,49 +64,43 @@
             const [db, setDb] = useState(null);
             const [user, setUser] = useState(null);
             const [error, setError] = useState(null);
+            const [isInit, setIsInit] = useState(false);
+            const [isCheckingPassword, setIsCheckingPassword] = useState(false);
 
             const [formData, setFormData] = useState({
                 location: LOCATIONS[0], group: '', timeStart: '', timeEnd: '',
                 date: new Date().toISOString().split('T')[0]
             });
 
-            // Inicjalizacja Firebase z obsługą błędów
             useEffect(() => {
-                const initFirebase = async () => {
-                    const checkInterval = setInterval(async () => {
-                        if (window.fb) {
-                            clearInterval(checkInterval);
-                            try {
-                                const app = window.fb.initializeApp(window.fb.firebaseConfig);
-                                const database = window.fb.getFirestore(app);
-                                const auth = window.fb.getAuth(app);
-                                setDb(database);
-
-                                // Próba logowania anonimowego
-                                const cred = await window.fb.signInAnonymously(auth);
-                                setUser(cred.user);
-                            } catch (err) {
-                                console.error("Firebase Init Error:", err);
-                                setError("Błąd Firebase: " + err.message + ". Upewnij się, że klucz API jest poprawny i logowanie anonimowe jest włączone w konsoli Firebase.");
-                            }
-                        }
-                    }, 100);
+                const startApp = async () => {
+                    if (!window.fb) return;
+                    try {
+                        const app = window.fb.initializeApp(window.fb.firebaseConfig);
+                        const database = window.fb.getFirestore(app);
+                        const auth = window.fb.getAuth(app);
+                        setDb(database);
+                        await window.fb.signInAnonymously(auth).then(cred => {
+                            setUser(cred.user);
+                            setIsInit(true);
+                        }).catch(authErr => {
+                            setError("Błąd autoryzacji: " + authErr.message);
+                        });
+                    } catch (initErr) {
+                        setError("Błąd inicjalizacji: " + initErr.message);
+                    }
                 };
-                initFirebase();
+                setTimeout(startApp, 500);
             }, []);
 
-            // Synchronizacja danych
             useEffect(() => {
                 if (!db || !user) return;
-                
                 const unsubRes = window.fb.onSnapshot(window.fb.collection(db, 'reservations'), (snap) => {
                     setReservations(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-                }, (err) => setError("Błąd pobierania rezerwacji: " + err.message));
-
+                });
                 const unsubContent = window.fb.onSnapshot(window.fb.doc(db, 'content', 'main'), (snap) => {
                     if (snap.exists()) setExtraContent(snap.data());
-                }, (err) => setError("Błąd pobierania treści: " + err.message));
-
+                });
                 return () => { unsubRes(); unsubContent(); };
             }, [db, user]);
 
@@ -106,228 +109,238 @@
                 return () => clearInterval(t);
             }, []);
 
+            const checkPassword = async (e) => {
+                e.preventDefault();
+                setIsCheckingPassword(true);
+                const hashedInput = await sha256(passwordInput);
+                
+                if (hashedInput === COMMANDANT_HASH) {
+                    setIsJadlospisEditing(true);
+                } else {
+                    alert("Nieprawidłowe hasło komendanta!");
+                }
+                setIsCheckingPassword(false);
+            };
+
             const handleAdd = async (e) => {
                 e.preventDefault();
                 try {
                     await window.fb.addDoc(window.fb.collection(db, 'reservations'), formData);
-                    setIsBookingModalOpen(false);
+                    setIsBookingModalOpen(false); // Zamykanie okna
                     setFormData({ ...formData, group: '', timeStart: '', timeEnd: '' });
                 } catch (err) {
-                    setError("Nie udało się dodać rezerwacji: " + err.message);
+                    alert("Błąd zapisu rezerwacji!");
                 }
             };
 
             const updateContent = async (key, val) => {
-                try {
-                    await window.fb.setDoc(window.fb.doc(db, 'content', 'main'), { ...extraContent, [key]: val }, { merge: true });
-                } catch (err) {
-                    setError("Błąd zapisu: " + err.message);
-                }
+                await window.fb.setDoc(window.fb.doc(db, 'content', 'main'), { ...extraContent, [key]: val }, { merge: true });
             };
 
             const deleteReservation = async (id) => {
-                try {
+                if(confirm("Czy na pewno chcesz usunąć tę rezerwację?")) {
                     await window.fb.deleteDoc(window.fb.doc(db, 'reservations', id));
-                } catch (err) {
-                    setError("Błąd usuwania: " + err.message);
                 }
             }
 
-            if (error) {
-                return (
-                    <div className="min-h-screen bg-red-50 flex items-center justify-center p-6 text-center">
-                        <div className="max-w-md bg-white p-8 rounded-3xl shadow-xl border border-red-200">
-                            <h2 className="text-red-600 font-black text-2xl mb-4 uppercase">Błąd Konfiguracji</h2>
-                            <p className="text-slate-600 mb-6">{error}</p>
-                            <button onClick={() => window.location.reload()} className="bg-red-600 text-white px-6 py-2 rounded-xl font-bold">Odśwież stronę</button>
-                        </div>
-                    </div>
-                );
-            }
-
-            if (!user) {
-                return (
-                    <div className="min-h-screen bg-emerald-900 flex items-center justify-center text-white">
-                        <div className="text-center animate-pulse">
-                            <div className="text-4xl mb-4 italic font-black">BIAŁY BRZEG 2026</div>
-                            <div className="text-xs uppercase tracking-widest opacity-50 font-bold">Inicjalizacja systemu...</div>
-                        </div>
-                    </div>
-                );
-            }
+            if (error) return <div className="p-10 text-center font-bold text-red-600">{error}</div>;
+            
+            if (!isInit) return (
+                <div className="min-h-screen bg-emerald-950 flex flex-col items-center justify-center text-white font-black italic">
+                    <img src={IMG_LOGO} alt="Logo BB" className="w-24 h-24 rounded-full mb-6 animate-pulse" />
+                    ŁADOWANIE SYSTEMU STANICY...
+                </div>
+            );
 
             return (
-                <div className="min-h-screen pb-20">
-                    <header className="bg-emerald-950 text-white p-8 md:p-12">
-                        <div className="max-w-5xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
-                            <div>
-                                <h1 className="text-4xl font-black italic tracking-tighter">BIAŁY BRZEG 2026</h1>
-                                <p className="text-emerald-400 font-bold uppercase tracking-widest text-xs mt-2 italic">Portal Operacyjny Stanicy</p>
-                            </div>
-                            <div className="bg-white/5 p-5 rounded-3xl text-center border border-white/10 backdrop-blur-md">
-                                <div className="text-4xl font-mono font-black text-emerald-300 tracking-tighter">
-                                    {currentTime.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                <div className="min-h-screen pb-20 selection:bg-emerald-200">
+                    <header 
+                        className="bg-emerald-950 text-white p-8 md:p-16 relative overflow-hidden bg-cover bg-center"
+                        style={{ backgroundImage: `url('${IMG_HEADER}')` }}
+                    >
+                        {/* Overlay przyciemniający tło dla czytelności */}
+                        <div className="absolute inset-0 bg-emerald-950/70 backdrop-blur-[1px]"></div>
+                        
+                        <div className="max-w-5xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8 relative z-10">
+                            <div className="flex flex-col md:flex-row items-center gap-6 text-center md:text-left">
+                                <img 
+                                    src={IMG_LOGO} 
+                                    alt="Logo BB" 
+                                    className="w-20 h-20 md:w-24 md:h-24 rounded-full border-4 border-white/20 shadow-2xl"
+                                    onerror="this.style.display='none'"
+                                />
+                                <div>
+                                    <h1 className="text-5xl font-black italic tracking-tighter leading-none shadow-sm">BIAŁY BRZEG 2026</h1>
+                                    <p className="text-emerald-400 font-black uppercase tracking-[0.2em] text-[10px] mt-4 flex items-center justify-center md:justify-start gap-2">
+                                        <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></span>
+                                        System Operacyjny Stanicy
+                                    </p>
                                 </div>
-                                <div className="text-[10px] uppercase font-bold opacity-50 mt-1 tracking-widest">
-                                    {currentTime.toLocaleDateString('pl-PL', { weekday: 'long', day: 'numeric', month: 'long' })}
+                            </div>
+                            <div className="bg-black/40 p-6 rounded-[2.5rem] text-center border border-white/10 backdrop-blur-xl shadow-2xl min-w-[280px]">
+                                <div className="text-5xl font-mono font-black text-emerald-300 tracking-tighter">
+                                    {currentTime.toLocaleTimeString('pl-PL')}
+                                </div>
+                                <div className="text-[10px] font-black uppercase tracking-widest opacity-60 mt-1">
+                                    Radomsko • Biały Brzeg
                                 </div>
                             </div>
                         </div>
                     </header>
 
-                    <nav className="max-w-5xl mx-auto -mt-8 px-4 flex gap-1 bg-white shadow-2xl p-2 rounded-3xl overflow-x-auto no-scrollbar">
-                        {['home', 'rezerwacje', 'jadlospis', 'wycieczki', 'kontakt'].map(tab => (
-                            <button key={tab} onClick={() => setActiveTab(tab)} className={`flex-1 py-4 px-6 rounded-2xl font-black text-[10px] uppercase tracking-wider transition-all whitespace-nowrap ${activeTab === tab ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-400 hover:bg-emerald-50'}`}>
-                                {tab === 'home' ? 'Start' : tab}
-                            </button>
-                        ))}
+                    <nav className="max-w-5xl mx-auto -mt-10 px-4 sticky top-6 z-40">
+                        <div className="bg-white/95 backdrop-blur-md rounded-3xl shadow-2xl border border-emerald-100 p-2 flex overflow-x-auto no-scrollbar gap-1">
+                            {['home', 'rezerwacje', 'jadlospis', 'wycieczki', 'kontakt'].map(tab => (
+                                <button key={tab} onClick={() => setActiveTab(tab)} className={`flex items-center gap-2 px-6 py-4 rounded-2xl transition-all flex-1 justify-center whitespace-nowrap ${activeTab === tab ? 'bg-emerald-600 text-white shadow-xl scale-[1.02] font-black' : 'text-emerald-900/40 hover:bg-emerald-50 font-bold'}`}>
+                                    <i data-lucide={tab === 'home' ? 'home' : tab === 'rezerwacje' ? 'map-pin' : tab === 'jadlospis' ? 'utensils' : tab === 'wycieczki' ? 'compass' : 'phone'} className="w-4 h-4"></i>
+                                    <span className="text-[10px] uppercase tracking-wider">{tab === 'home' ? 'Start' : tab}</span>
+                                </button>
+                            ))}
+                        </div>
                     </nav>
 
-                    <main className="max-w-5xl mx-auto p-6 mt-8">
+                    <main className="max-w-5xl mx-auto p-6 mt-12">
+                        {/* WIDOK START */}
                         {activeTab === 'home' && (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-in fade-in duration-500">
                                 <div className="bg-white p-10 rounded-[3rem] shadow-sm border border-emerald-50">
-                                    <h2 className="text-2xl font-black mb-6 uppercase tracking-tighter flex items-center gap-2 italic">
-                                        <span className="w-2 h-8 bg-emerald-600 rounded-full inline-block"></span>
-                                        Dzisiejszy Grafik
-                                    </h2>
-                                    {reservations.filter(r => r.date === new Date().toISOString().split('T')[0]).length === 0 ? 
-                                        <p className="text-slate-400 italic py-10 text-center">Brak rezerwacji na dziś.</p> : 
+                                    <h2 className="text-2xl font-black uppercase italic mb-6">Grafik na dziś</h2>
+                                    {reservations.filter(r => r.date === new Date().toISOString().split('T')[0]).length > 0 ? (
                                         reservations.filter(r => r.date === new Date().toISOString().split('T')[0]).map(r => (
-                                            <div key={r.id} className="p-4 bg-emerald-50/50 border border-emerald-100 rounded-2xl mb-3 flex justify-between items-center group">
-                                                <div>
-                                                    <span className="font-black text-emerald-700 tabular-nums">{r.timeStart} - {r.timeEnd}</span>
-                                                    <div className="uppercase font-black text-emerald-950 text-sm mt-1">{r.location}</div>
-                                                </div>
-                                                <div className="text-[10px] font-black text-emerald-600 bg-white px-3 py-1 rounded-full border border-emerald-100">{r.group}</div>
+                                            <div key={r.id} className="p-4 bg-emerald-50/50 border border-emerald-100 rounded-2xl mb-3 flex justify-between items-center">
+                                                <span className="font-black text-emerald-700">{r.timeStart} - {r.timeEnd}</span>
+                                                <span className="uppercase font-black text-emerald-950 text-xs">{r.location}</span>
                                             </div>
                                         ))
-                                    }
+                                    ) : (
+                                        <p className="text-slate-400 italic text-center py-10">Brak zajęć w grafiku na dzisiaj.</p>
+                                    )}
                                 </div>
-                                <div className="bg-emerald-900 text-white p-10 rounded-[3rem] shadow-2xl relative overflow-hidden group">
-                                    <div className="absolute top-0 right-0 p-10 opacity-10 group-hover:rotate-12 transition-transform duration-700 underline">Stanica</div>
-                                    <h2 className="text-2xl font-black mb-6 uppercase tracking-tighter italic">Dzisiejsze Menu</h2>
-                                    <div className="italic text-emerald-100 text-xl leading-relaxed whitespace-pre-wrap">
-                                        {extraContent.jadlospis || "Menu zostanie wkrótce ogłoszone przez kwatermistrzostwo..."}
+                                <div className="bg-emerald-900 text-white p-10 rounded-[3rem] shadow-2xl relative overflow-hidden">
+                                    <img src={IMG_LOGO} className="absolute -bottom-10 -right-10 w-48 h-48 opacity-5 grayscale" />
+                                    <h2 className="text-2xl font-black mb-6 uppercase italic">Dzisiejsze Menu</h2>
+                                    <div className="italic text-emerald-100 text-xl whitespace-pre-wrap leading-relaxed">
+                                        {extraContent.jadlospis || "Menu wkrótce..."}
                                     </div>
                                 </div>
                             </div>
                         )}
 
-                        {activeTab === 'rezerwacje' && (
-                            <div className="bg-white p-10 rounded-[3rem] shadow-xl border border-emerald-50 animate-in fade-in duration-500">
-                                <div className="flex flex-col md:flex-row justify-between items-center mb-10 gap-4">
-                                    <h2 className="text-3xl font-black uppercase italic tracking-tighter">Planowanie Miejsc</h2>
-                                    <button onClick={() => setIsBookingModalOpen(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white px-8 py-4 rounded-2xl font-black text-xs uppercase shadow-xl transition-all active:scale-95">Dodaj rezerwację</button>
-                                </div>
-                                <div className="space-y-4">
-                                    {reservations.length === 0 ? <p className="text-center py-20 text-slate-300 font-bold uppercase tracking-widest">Pusty grafik</p> : 
-                                        reservations.sort((a,b) => a.date.localeCompare(b.date) || a.timeStart.localeCompare(b.timeStart)).map(res => (
-                                        <div key={res.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-6 bg-slate-50 rounded-3xl hover:bg-emerald-50 transition-colors border border-transparent hover:border-emerald-100 group">
-                                            <div className="mb-4 sm:mb-0">
-                                                <div className="font-black text-emerald-950 uppercase text-xl leading-none">{res.location}</div>
-                                                <div className="text-sm font-bold text-slate-500 mt-1 flex items-center gap-2">
-                                                    <span className="bg-white px-2 py-0.5 rounded-lg border border-slate-200">{res.group}</span>
-                                                    <span className="opacity-50">•</span>
-                                                    <span>{res.date}</span>
-                                                </div>
-                                            </div>
-                                            <div className="flex items-center gap-4 w-full sm:w-auto">
-                                                <div className="font-mono font-black text-lg bg-white px-5 py-2 rounded-2xl shadow-sm border border-emerald-100 flex-1 sm:flex-none text-center">
-                                                    {res.timeStart} - {res.timeEnd}
-                                                </div>
-                                                <button onClick={() => deleteReservation(res.id)} className="p-3 text-slate-300 hover:text-red-500 transition-all opacity-0 group-hover:opacity-100">X</button>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
+                        {/* WIDOK JADŁOSPIS */}
                         {activeTab === 'jadlospis' && (
-                            <div className="max-w-3xl mx-auto bg-white p-10 rounded-[3.5rem] shadow-2xl text-center border border-orange-100 animate-in zoom-in-95 duration-500">
-                                <h2 className="text-4xl font-black uppercase mb-8 italic tracking-tighter">Karta Dań</h2>
+                            <div className="max-w-3xl mx-auto bg-white p-12 rounded-[4rem] shadow-2xl text-center border border-orange-100">
+                                <h2 className="text-5xl font-black uppercase mb-10 italic tracking-tighter">Karta Dań</h2>
                                 {!isJadlospisEditing ? (
                                     <>
-                                        <div className="p-12 bg-orange-50/50 rounded-[2.5rem] italic text-2xl min-h-[300px] mb-8 flex items-center justify-center border border-orange-100 leading-relaxed font-medium">
-                                            {extraContent.jadlospis || "Kuchnia jeszcze przygotowuje dzisiejsze potrawy..."}
+                                        <div className="p-12 bg-orange-50/50 rounded-[3rem] italic text-3xl min-h-[350px] mb-12 flex items-center justify-center border-2 border-orange-100/50 font-bold leading-relaxed">
+                                            {extraContent.jadlospis || "Czekamy na kucharzy..."}
                                         </div>
-                                        <div className="flex flex-col items-center gap-4 bg-slate-50 p-8 rounded-[2rem] border border-slate-200">
-                                            <p className="text-[10px] uppercase font-black tracking-widest text-slate-400">Autoryzacja Komendanta</p>
-                                            <div className="flex gap-2 w-full max-w-xs">
-                                                <input type="password" placeholder="Hasło..." className="flex-1 p-4 bg-white border-2 rounded-2xl outline-none focus:border-emerald-500 font-bold" onChange={e => setPasswordInput(e.target.value)} />
-                                                <button onClick={() => passwordInput === COMMANDANT_PASSWORD ? setIsJadlospisEditing(true) : alert("Nieprawidłowe hasło")} className="bg-slate-900 text-white px-6 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all hover:bg-black">Edytuj</button>
-                                            </div>
+                                        <div className="bg-slate-50 p-10 rounded-[3rem] border border-slate-200">
+                                            <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4 italic">Weryfikacja Komendanta</div>
+                                            <form onSubmit={checkPassword} className="flex gap-3 w-full max-w-sm mx-auto">
+                                                <input type="password" placeholder="Hasło..." className="flex-1 p-5 bg-white border-2 rounded-2xl outline-none focus:border-emerald-500 font-black" onChange={e => setPasswordInput(e.target.value)} />
+                                                <button type="submit" disabled={isCheckingPassword} className="bg-slate-900 text-white px-8 rounded-2xl font-black text-[10px] uppercase hover:bg-black transition-all">
+                                                    {isCheckingPassword ? "..." : "Edytuj"}
+                                                </button>
+                                            </form>
                                         </div>
                                     </>
                                 ) : (
-                                    <div className="space-y-6">
-                                        <textarea className="w-full h-80 p-10 border-4 border-emerald-100 rounded-[2.5rem] outline-none text-2xl italic font-bold text-center leading-relaxed" value={extraContent.jadlospis} onChange={e => updateContent('jadlospis', e.target.value)} placeholder="Wpisz menu..." />
-                                        <button onClick={() => setIsJadlospisEditing(false)} className="w-full bg-emerald-600 text-white py-5 rounded-2xl font-black uppercase tracking-widest text-lg shadow-xl hover:scale-[1.02] transition-all">Zapisz i Opublikuj</button>
+                                    <div className="space-y-8">
+                                        <textarea className="w-full h-[400px] p-10 border-4 border-emerald-100 rounded-[3rem] outline-none text-2xl italic font-black text-center bg-emerald-50/20" value={extraContent.jadlospis} onChange={e => updateContent('jadlospis', e.target.value)} />
+                                        <button onClick={() => setIsJadlospisEditing(false)} className="w-full bg-emerald-600 text-white py-6 rounded-3xl font-black uppercase tracking-widest text-xl shadow-2xl transition-transform active:scale-95">Zapisz i Opublikuj</button>
                                     </div>
                                 )}
                             </div>
                         )}
 
+                        {/* WIDOK REZERWACJE */}
+                        {activeTab === 'rezerwacje' && (
+                            <div className="bg-white p-10 rounded-[3.5rem] shadow-xl border border-emerald-50">
+                                <div className="flex justify-between items-center mb-10">
+                                    <h2 className="text-4xl font-black uppercase italic tracking-tighter">Grafik Miejsc</h2>
+                                    <button onClick={() => setIsBookingModalOpen(true)} className="bg-emerald-600 text-white px-8 py-4 rounded-2xl font-black text-xs uppercase shadow-xl transition-transform active:scale-95">Dodaj rezerwację</button>
+                                </div>
+                                <div className="space-y-4">
+                                    {reservations.length > 0 ? (
+                                        reservations.sort((a,b) => a.date.localeCompare(b.date) || a.timeStart.localeCompare(b.timeStart)).map(res => (
+                                            <div key={res.id} className="flex justify-between items-center p-8 bg-slate-50 rounded-[2.5rem] hover:bg-emerald-50 transition-all border border-emerald-100 group">
+                                                <div>
+                                                    <div className="font-black text-emerald-950 uppercase text-xl leading-none">{res.location}</div>
+                                                    <div className="text-xs font-bold text-slate-400 mt-2 italic">{res.group} • {res.date}</div>
+                                                </div>
+                                                <div className="flex items-center gap-6">
+                                                    <div className="font-mono font-black text-2xl bg-white px-6 py-3 rounded-2xl border border-emerald-50 text-emerald-900 shadow-sm">{res.timeStart}-{res.timeEnd}</div>
+                                                    <button onClick={() => deleteReservation(res.id)} className="text-slate-200 hover:text-red-500 font-bold transition-all text-xl">✕</button>
+                                                </div>
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <p className="text-center py-20 text-slate-300 font-black uppercase tracking-[0.3em]">Grafik jest pusty</p>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
                         {activeTab === 'wycieczki' && (
-                            <div className="bg-white p-10 rounded-[3rem] shadow-xl border border-blue-100 animate-in fade-in duration-500">
-                                <h2 className="text-3xl font-black uppercase mb-6 italic tracking-tighter">Log Wyjść i Wycieczek</h2>
-                                <p className="text-slate-500 mb-6 font-medium">Zapisuj wszystkie grupy przebywające poza terenem stanicy.</p>
-                                <textarea className="w-full h-96 p-10 bg-blue-50/20 border-2 border-blue-100 rounded-[2.5rem] outline-none font-mono text-xl leading-relaxed font-bold" value={extraContent.wycieczki} onChange={e => updateContent('wycieczki', e.target.value)} placeholder="Godzina, Zastęp, Cel wyjścia, Planowany powrót..." />
+                            <div className="bg-white p-10 rounded-[3rem] shadow-xl border border-blue-100">
+                                <h2 className="text-3xl font-black uppercase mb-6 italic tracking-tighter">Log Wycieczek / Wyjść</h2>
+                                <textarea className="w-full h-96 p-10 bg-blue-50/20 border-2 border-blue-100 rounded-[3rem] outline-none font-mono text-xl font-bold leading-relaxed" value={extraContent.wycieczki} onChange={e => updateContent('wycieczki', e.target.value)} placeholder="Wpisz wyjścia grup poza teren stanicy..." />
                             </div>
                         )}
 
                         {activeTab === 'kontakt' && (
-                            <div className="bg-white p-10 rounded-[3rem] shadow-xl border border-red-100 animate-in fade-in duration-500">
-                                <h2 className="text-3xl font-black uppercase mb-6 italic text-red-600 tracking-tighter">Książka Telefoniczna</h2>
-                                <textarea className="w-full h-96 p-10 bg-red-50/20 border-2 border-red-100 rounded-[2.5rem] outline-none font-black text-xl text-red-900 leading-relaxed" value={extraContent.kontakt} onChange={e => updateContent('kontakt', e.target.value)} placeholder="Ważne numery telefonów do kadry i służb..." />
+                            <div className="bg-white p-10 rounded-[3rem] shadow-xl border border-red-100">
+                                <h2 className="text-3xl font-black uppercase mb-6 italic text-red-600">Numery Alarmowe i Kadra</h2>
+                                <textarea className="w-full h-96 p-10 bg-red-50/20 border-2 border-red-100 rounded-[3rem] outline-none font-black text-xl text-red-900 leading-relaxed" value={extraContent.kontakt} onChange={e => updateContent('kontakt', e.target.value)} placeholder="Najważniejsze kontakty..." />
                             </div>
                         )}
                     </main>
 
                     {/* MODAL NOWEJ REZERWACJI */}
                     {isBookingModalOpen && (
-                        <div className="fixed inset-0 bg-emerald-950/90 backdrop-blur-xl z-[100] flex items-center justify-center p-4 overflow-y-auto">
-                            <div className="bg-white w-full max-w-xl rounded-[3.5rem] shadow-2xl p-10 my-auto">
-                                <h2 className="text-3xl font-black uppercase mb-8 italic tracking-tighter">Rezerwacja Miejsca</h2>
-                                <form onSubmit={handleAdd} className="space-y-6">
+                        <div className="fixed inset-0 bg-emerald-950/90 backdrop-blur-xl z-[100] flex items-center justify-center p-4">
+                            <div className="bg-white w-full max-w-xl rounded-[4rem] p-12 shadow-2xl relative overflow-hidden">
+                                <img src={IMG_LOGO} className="absolute -top-10 -left-10 w-40 h-40 opacity-5 grayscale" />
+                                <h2 className="text-3xl font-black uppercase mb-8 italic tracking-tighter relative z-10">Nowa Rezerwacja</h2>
+                                <form onSubmit={handleAdd} className="space-y-6 relative z-10">
                                     <div className="space-y-1">
-                                        <label className="text-[10px] font-black uppercase tracking-widest text-emerald-900 ml-4">Lokalizacja</label>
-                                        <select className="w-full p-5 bg-slate-50 rounded-2xl border-none font-black text-lg appearance-none cursor-pointer" value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})}>
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-emerald-900 ml-4 opacity-50 italic">Wybierz Miejsce</label>
+                                        <select className="w-full p-6 bg-slate-50 rounded-[2rem] border-none font-black text-lg appearance-none cursor-pointer" value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})}>
                                             {LOCATIONS.map(l => <option key={l} value={l}>{l}</option>)}
                                         </select>
                                     </div>
                                     <div className="space-y-1">
-                                        <label className="text-[10px] font-black uppercase tracking-widest text-emerald-900 ml-4">Nazwa Grupy / Zastępu</label>
-                                        <input className="w-full p-5 bg-slate-50 rounded-2xl border-none font-black text-lg" placeholder="Np. 23 DH Iskierki" required onChange={e => setFormData({...formData, group: e.target.value})} />
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-emerald-900 ml-4 opacity-50 italic">Nazwa Grupy / Zastępu</label>
+                                        <input className="w-full p-6 bg-slate-50 rounded-[2rem] border-none font-black text-lg focus:ring-4 focus:ring-emerald-100 transition-all" placeholder="Np. 1 DH Iskierki" required onChange={e => setFormData({...formData, group: e.target.value})} />
                                     </div>
                                     <div className="grid grid-cols-2 gap-6">
-                                        <div className="space-y-1">
-                                            <label className="text-[10px] font-black uppercase tracking-widest text-emerald-900 text-center block">Od godziny</label>
-                                            <input type="time" className="w-full p-5 bg-slate-50 rounded-2xl border-none font-black text-2xl text-center" required onChange={e => setFormData({...formData, timeStart: e.target.value})} />
+                                        <div className="space-y-1 text-center">
+                                            <label className="text-[10px] font-black uppercase tracking-widest text-emerald-900 opacity-50 italic">Od godz.</label>
+                                            <input type="time" className="w-full p-6 bg-slate-50 rounded-[2rem] border-none font-black text-2xl text-center" required onChange={e => setFormData({...formData, timeStart: e.target.value})} />
                                         </div>
-                                        <div className="space-y-1">
-                                            <label className="text-[10px] font-black uppercase tracking-widest text-emerald-900 text-center block">Do godziny</label>
-                                            <input type="time" className="w-full p-5 bg-slate-50 rounded-2xl border-none font-black text-2xl text-center" required onChange={e => setFormData({...formData, timeEnd: e.target.value})} />
+                                        <div className="space-y-1 text-center">
+                                            <label className="text-[10px] font-black uppercase tracking-widest text-emerald-900 opacity-50 italic">Do godz.</label>
+                                            <input type="time" className="w-full p-6 bg-slate-50 rounded-[2rem] border-none font-black text-2xl text-center" required onChange={e => setFormData({...formData, timeEnd: e.target.value})} />
                                         </div>
                                     </div>
                                     <div className="space-y-1">
-                                        <label className="text-[10px] font-black uppercase tracking-widest text-emerald-900 ml-4">Data</label>
-                                        <input type="date" className="w-full p-5 bg-slate-50 rounded-2xl border-none font-black text-lg" required value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} />
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-emerald-900 ml-4 opacity-50 italic">Data</label>
+                                        <input type="date" className="w-full p-6 bg-slate-50 rounded-[2rem] border-none font-black text-lg" required value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} />
                                     </div>
-                                    <div className="flex gap-4 pt-4">
-                                        <button type="button" onClick={() => setIsBookingModalOpen(false)} className="flex-1 p-5 font-black uppercase tracking-widest text-xs text-slate-400">Anuluj</button>
-                                        <button type="submit" className="flex-[2] bg-emerald-600 text-white p-5 rounded-2xl font-black uppercase tracking-widest text-lg shadow-xl shadow-emerald-100 active:scale-95 transition-all">Zapisz Grafik</button>
+                                    <div className="flex flex-col gap-3 pt-4">
+                                        <button type="submit" className="w-full bg-emerald-600 text-white p-7 rounded-[2.5rem] font-black uppercase tracking-widest text-xl shadow-xl hover:scale-[1.02] active:scale-95 transition-all">Zatwierdź Grafik</button>
+                                        <button type="button" onClick={() => setIsBookingModalOpen(false)} className="w-full font-black uppercase tracking-widest text-slate-300 text-xs py-2">Anuluj</button>
                                     </div>
                                 </form>
                             </div>
                         </div>
                     )}
 
-                    <footer className="fixed bottom-6 left-0 right-0 flex justify-center pointer-events-none z-50">
-                        <div className="bg-emerald-950/90 backdrop-blur-md text-white px-8 py-3 rounded-full text-[10px] font-black uppercase tracking-[0.4em] shadow-2xl border border-white/10 pointer-events-auto flex items-center gap-3">
-                            <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]"></span>
-                            Biały Brzeg 2026 • Live Data Sync
+                    <footer className="fixed bottom-8 left-0 right-0 flex justify-center pointer-events-none z-50">
+                        <div className="bg-emerald-950/95 backdrop-blur-md text-white px-10 py-4 rounded-full text-[10px] font-black uppercase tracking-[0.5em] shadow-2xl border border-white/10 pointer-events-auto flex items-center gap-4">
+                            <img src={IMG_LOGO} className="w-4 h-4 rounded-full" onerror="this.style.display='none'" />
+                            Biały Brzeg 2026 • Live Sync Active
                         </div>
                     </footer>
                 </div>
@@ -336,12 +349,16 @@
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
+        
+        window.addEventListener('load', () => lucide.createIcons());
+        document.addEventListener('click', () => setTimeout(lucide.createIcons, 50));
     </script>
     <style>
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        @keyframes fade-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .animate-in { animation: fade-in 0.5s ease-out forwards; }
+        @keyframes fade-in { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-in { animation: fade-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        * { -webkit-tap-highlight-color: transparent; }
     </style>
 </body>
 </html>
