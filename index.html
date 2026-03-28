@@ -37,14 +37,27 @@ import {
 
 // --- TWOJA KONFIGURACJA FIREBASE ---
 // Wklej tutaj swoje dane z Firebase Console -> Project Settings
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
-  apiKey: "TWOJE_API_KEY",
-  authDomain: "TWOJA_DOMENA.firebaseapp.com",
-  projectId: "TWOJE_PROJECT_ID",
-  storageBucket: "TWOJE_STORAGE_BUCKET",
-  messagingSenderId: "TWOJE_SENDER_ID",
-  appId: "TWOJE_APP_ID"
+  apiKey: "AIzaSyCauw7c_x7mhypkg9bYQ0NxADiToXHnjJY",
+  authDomain: "stanica-bialy-brzeg.firebaseapp.com",
+  projectId: "stanica-bialy-brzeg",
+  storageBucket: "stanica-bialy-brzeg.firebasestorage.app",
+  messagingSenderId: "861747237880",
+  appId: "1:861747237880:web:7d3ce04c6250381043fc0d",
+  measurementId: "G-CF6C1FX1C7"
 };
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
 
 // Inicjalizacja Firebase (tylko jeśli podano poprawne dane, inaczej używamy mocków dla podglądu)
 const app = initializeApp(firebaseConfig);
