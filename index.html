@@ -18,9 +18,8 @@
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
         // --- KONFIGURACJA FIREBASE ---
-        // WKLEJ TUTAJ SWÓJ NOWY KLUCZ WYGENEROWANY W KROKU WYŻEJ
         const firebaseConfig = {
-            apiKey: "AIzaSyCauw7c_x7mhypkg9bYQ0NxADiToXHnjJY", 
+            apiKey: "AIzaSyCauw7c_x7mhypk9bYQ0nxADiToXHnJjY", 
             authDomain: "stanica-bialy-brzeg.firebaseapp.com",
             projectId: "stanica-bialy-brzeg",
             storageBucket: "stanica-bialy-brzeg.firebasestorage.app",
@@ -83,7 +82,12 @@
                             setIsInit(true);
                         }).catch(authErr => {
                             setErrorCode(authErr.code);
-                            setError(authErr.message);
+                            // Specjalna obsługa błędu domeny
+                            if (authErr.code.includes('referer') || authErr.code.includes('unauthorized-domain')) {
+                                setError("DOMENA ZABLOKOWANA. Musisz dodać 'grzesinekc.github.io' do 'Authorized Domains' w sekcji Authentication -> Settings w konsoli Firebase.");
+                            } else {
+                                setError(authErr.message);
+                            }
                         });
                     } catch (initErr) {
                         setError(initErr.message);
@@ -134,7 +138,7 @@
                 
                 try {
                     await window.fb.addDoc(window.fb.collection(db, 'reservations'), formData);
-                    setIsBookingModalOpen(false); // Okno zamknie się samo po sukcesie
+                    setIsBookingModalOpen(false); // Poprawka: modal zamyka się po dodaniu
                 } catch (err) {
                     alert("Błąd zapisu danych!");
                 }
@@ -153,14 +157,24 @@
 
             if (error) return (
                 <div className="min-h-screen bg-red-50 flex flex-col items-center justify-center p-6 text-center">
-                    <div className="bg-white p-10 rounded-[3rem] shadow-2xl border-4 border-red-100 max-w-xl w-full">
-                        <img src={IMG_LOGO} className="w-20 h-20 mx-auto mb-6 rounded-full border-2 border-slate-100" />
+                    <div className="bg-white p-10 rounded-[3.5rem] shadow-2xl border-4 border-red-100 max-w-xl w-full">
+                        <img src={IMG_LOGO} className="w-20 h-20 mx-auto mb-6 rounded-full border-2 border-slate-100 shadow-lg" />
                         <h2 className="text-red-600 font-black text-3xl mb-2 uppercase italic tracking-tighter">Błąd Systemu</h2>
-                        <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest mb-6">Kod błędu: {errorCode}</p>
-                        <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 mb-8 text-left">
-                            <p className="text-slate-600 font-medium text-sm leading-relaxed">{error}</p>
+                        <p className="text-slate-400 font-bold text-[9px] uppercase tracking-widest mb-6">Kod: {errorCode}</p>
+                        
+                        <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-200 mb-8 text-left space-y-4">
+                            <p className="text-slate-700 font-bold text-sm leading-relaxed">{error}</p>
+                            <div className="text-[10px] text-slate-500 font-medium">
+                                <p className="font-black uppercase mb-1">Instrukcja naprawy:</p>
+                                <ol className="list-decimal ml-4 space-y-1">
+                                    <li>Firebase Console -> Authentication -> Settings</li>
+                                    <li>Authorized Domains -> Add Domain</li>
+                                    <li>Wpisz: <span className="font-black text-emerald-600">grzesinekc.github.io</span></li>
+                                </ol>
+                            </div>
                         </div>
-                        <button onClick={() => window.location.reload()} className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-black transition-all">Odśwież stronę</button>
+                        
+                        <button onClick={() => window.location.reload()} className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-black transition-all shadow-xl active:scale-95">Odśwież po zmianach</button>
                     </div>
                 </div>
             );
@@ -168,7 +182,7 @@
             if (!isInit) return (
                 <div className="min-h-screen bg-[#064e3b] flex flex-col items-center justify-center text-white font-black italic">
                     <img src={IMG_LOGO} alt="Logo BB" className="w-32 h-32 rounded-full mb-8 animate-pulse shadow-2xl border-4 border-white/20" />
-                    <div className="tracking-[0.5em] text-emerald-400 text-xs mb-2 uppercase">Hufiec ZHP Radomsko</div>
+                    <div className="tracking-[0.4em] text-emerald-400 text-[10px] mb-2 uppercase">Hufiec ZHP Radomsko</div>
                     ŁADOWANIE SYSTEMU STANICY...
                 </div>
             );
@@ -179,14 +193,14 @@
                         className="bg-emerald-950 text-white p-8 md:p-24 relative overflow-hidden bg-cover bg-center"
                         style={{ backgroundImage: `url('${IMG_HEADER}')` }}
                     >
-                        <div className="absolute inset-0 bg-emerald-950/85 backdrop-blur-[2px]"></div>
+                        <div className="absolute inset-0 bg-emerald-950/85 backdrop-blur-[1.5px]"></div>
                         
                         <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-10 relative z-10">
                             <div className="flex flex-col md:flex-row items-center gap-8 text-center md:text-left">
                                 <img 
                                     src={IMG_LOGO} 
                                     alt="Logo BB" 
-                                    className="w-24 h-24 md:w-36 md:h-36 rounded-full border-4 border-white/20 shadow-2xl"
+                                    className="w-24 h-24 md:w-40 md:h-40 rounded-full border-4 border-white/20 shadow-2xl"
                                 />
                                 <div>
                                     <h1 className="text-5xl md:text-7xl font-black italic tracking-tighter leading-none">BIAŁY BRZEG 2026</h1>
@@ -195,11 +209,11 @@
                                     </p>
                                 </div>
                             </div>
-                            <div className="bg-black/40 p-8 rounded-[3rem] text-center border border-white/10 backdrop-blur-2xl shadow-2xl min-w-[300px]">
-                                <div className="text-6xl font-mono font-black text-emerald-300 tracking-tighter tabular-nums text-center">
+                            <div className="bg-black/40 p-10 rounded-[3rem] text-center border border-white/10 backdrop-blur-2xl shadow-2xl min-w-[320px]">
+                                <div className="text-7xl font-mono font-black text-emerald-300 tracking-tighter tabular-nums text-center leading-none">
                                     {currentTime.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                                 </div>
-                                <div className="text-[10px] font-black uppercase tracking-[0.4em] opacity-50 mt-2 italic text-center">
+                                <div className="text-[10px] font-black uppercase tracking-[0.4em] opacity-40 mt-4 italic text-center">
                                     {currentTime.toLocaleDateString('pl-PL', { weekday: 'long', day: 'numeric', month: 'long' })}
                                 </div>
                             </div>
@@ -227,33 +241,33 @@
                         {/* WIDOK START */}
                         {activeTab === 'home' && (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-10 animate-in">
-                                <div className="bg-white p-12 rounded-[3.5rem] shadow-sm border border-emerald-50 flex flex-col">
-                                    <h2 className="text-2xl font-black uppercase italic mb-8 flex items-center gap-4 text-emerald-950">
+                                <div className="bg-white p-12 rounded-[4rem] shadow-sm border border-emerald-50 flex flex-col">
+                                    <h2 className="text-3xl font-black uppercase italic mb-8 flex items-center gap-4 text-emerald-950">
                                         <i data-lucide="calendar" className="text-emerald-600"></i>
                                         Plan na dzisiaj
                                     </h2>
                                     <div className="space-y-4 flex-1">
                                         {reservations.filter(r => r.date === new Date().toISOString().split('T')[0]).length > 0 ? (
                                             reservations.filter(r => r.date === new Date().toISOString().split('T')[0]).map(r => (
-                                                <div key={r.id} className="p-5 bg-emerald-50/50 border border-emerald-100 rounded-3xl flex justify-between items-center group">
-                                                    <span className="font-black text-emerald-800 text-xl tabular-nums leading-none">{r.timeStart} - {r.timeEnd}</span>
-                                                    <span className="uppercase font-black text-emerald-950 text-xs tracking-tighter">{r.location}</span>
+                                                <div key={r.id} className="p-6 bg-emerald-50/50 border border-emerald-100 rounded-[2rem] flex justify-between items-center group">
+                                                    <span className="font-black text-emerald-800 text-2xl tabular-nums leading-none">{r.timeStart} - {r.timeEnd}</span>
+                                                    <span className="uppercase font-black text-emerald-950 text-xs tracking-tighter italic">{r.location}</span>
                                                 </div>
                                             ))
                                         ) : (
-                                            <div className="text-center py-20 text-slate-300 font-bold italic border-4 border-dashed border-slate-50 rounded-[2.5rem] uppercase tracking-widest text-xs">
-                                                Brak rezerwacji na dziś
+                                            <div className="text-center py-20 text-slate-300 font-bold italic border-4 border-dashed border-slate-50 rounded-[3rem] uppercase tracking-widest text-[10px]">
+                                                Brak aktywności na dzisiaj
                                             </div>
                                         )}
                                     </div>
                                 </div>
-                                <div className="bg-emerald-900 text-white p-12 rounded-[3.5rem] shadow-2xl relative overflow-hidden group">
-                                    <img src={IMG_LOGO} className="absolute -bottom-16 -right-16 w-72 h-72 opacity-5 grayscale group-hover:rotate-12 transition-transform duration-1000" />
-                                    <h2 className="text-2xl font-black mb-8 uppercase italic flex items-center gap-4 text-emerald-400">
+                                <div className="bg-emerald-900 text-white p-12 rounded-[4rem] shadow-2xl relative overflow-hidden group">
+                                    <img src={IMG_LOGO} className="absolute -bottom-16 -right-16 w-80 h-80 opacity-5 grayscale group-hover:rotate-12 transition-transform duration-1000" />
+                                    <h2 className="text-3xl font-black mb-8 uppercase italic flex items-center gap-4 text-emerald-400">
                                         <i data-lucide="utensils" className="text-emerald-400"></i>
                                         Menu Stanicy
                                     </h2>
-                                    <div className="italic text-emerald-100 text-2xl whitespace-pre-wrap leading-relaxed">
+                                    <div className="italic text-emerald-100 text-3xl whitespace-pre-wrap leading-relaxed font-bold">
                                         {extraContent.jadlospis || "Menu zostanie wkrótce ogłoszone."}
                                     </div>
                                 </div>
@@ -262,25 +276,25 @@
 
                         {/* WIDOK JADŁOSPIS */}
                         {activeTab === 'jadlospis' && (
-                            <div className="max-w-4xl mx-auto bg-white p-12 rounded-[4.5rem] shadow-2xl text-center border border-orange-100 animate-in">
-                                <h2 className="text-5xl font-black uppercase mb-12 italic tracking-tighter text-slate-900">Kuchnia BB</h2>
+                            <div className="max-w-4xl mx-auto bg-white p-12 rounded-[5rem] shadow-2xl text-center border border-orange-100 animate-in">
+                                <h2 className="text-6xl font-black uppercase mb-12 italic tracking-tighter text-slate-900 leading-none">Kuchnia BB</h2>
                                 {!isJadlospisEditing ? (
                                     <>
-                                        <div className="p-16 bg-orange-50/50 rounded-[4rem] italic text-3xl min-h-[450px] mb-12 flex items-center justify-center border-2 border-orange-100/50 font-bold leading-relaxed shadow-inner text-slate-800">
-                                            {extraContent.jadlospis || "Czekamy na zapach obiadu..."}
+                                        <div className="p-16 bg-orange-50/50 rounded-[4.5rem] italic text-4xl min-h-[500px] mb-12 flex items-center justify-center border-2 border-orange-100/50 font-bold leading-relaxed shadow-inner text-slate-800">
+                                            {extraContent.jadlospis || "Zapach obiadu niesie się po lesie..."}
                                         </div>
-                                        <div className="bg-slate-50 p-12 rounded-[3.5rem] border border-slate-200">
-                                            <div className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-400 mb-6 italic">Wymagana Autoryzacja Komendanta</div>
+                                        <div className="bg-slate-50 p-12 rounded-[4rem] border border-slate-200">
+                                            <div className="text-[10px] font-black uppercase tracking-[0.5em] text-slate-400 mb-8 italic">Autoryzacja Komendanta</div>
                                             <form onSubmit={checkPassword} className="flex flex-col sm:flex-row gap-4 w-full max-w-sm mx-auto">
-                                                <input type="password" placeholder="Hasło..." className="flex-1 p-5 bg-white border-2 rounded-2xl outline-none focus:border-emerald-500 font-black shadow-sm" onChange={e => setPasswordInput(e.target.value)} />
-                                                <button type="submit" className="bg-slate-900 text-white px-12 py-5 rounded-2xl font-black text-[10px] uppercase hover:bg-black transition-all shadow-xl active:scale-95 tracking-widest">Weryfikuj</button>
+                                                <input type="password" placeholder="Hasło..." className="flex-1 p-6 bg-white border-2 rounded-3xl outline-none focus:border-emerald-500 font-black shadow-sm text-xl" onChange={e => setPasswordInput(e.target.value)} />
+                                                <button type="submit" className="bg-slate-900 text-white px-12 py-6 rounded-3xl font-black text-[11px] uppercase hover:bg-black transition-all shadow-xl active:scale-95 tracking-widest leading-none">Weryfikuj</button>
                                             </form>
                                         </div>
                                     </>
                                 ) : (
                                     <div className="space-y-8 animate-in zoom-in-95 duration-200">
-                                        <textarea className="w-full h-[550px] p-12 border-4 border-emerald-100 rounded-[4rem] outline-none text-3xl italic font-black text-center bg-emerald-50/20 shadow-inner focus:border-emerald-500 transition-all leading-relaxed" value={extraContent.jadlospis} onChange={e => updateContent('jadlospis', e.target.value)} />
-                                        <button onClick={() => setIsJadlospisEditing(false)} className="w-full bg-emerald-600 text-white py-8 rounded-[3rem] font-black uppercase tracking-[0.4em] text-2xl shadow-2xl transition-transform active:scale-95">Opublikuj Jadłospis</button>
+                                        <textarea className="w-full h-[600px] p-16 border-4 border-emerald-100 rounded-[5rem] outline-none text-4xl italic font-black text-center bg-emerald-50/20 shadow-inner focus:border-emerald-500 transition-all leading-relaxed" value={extraContent.jadlospis} onChange={e => updateContent('jadlospis', e.target.value)} />
+                                        <button onClick={() => setIsJadlospisEditing(false)} className="w-full bg-emerald-600 text-white py-10 rounded-[3.5rem] font-black uppercase tracking-[0.4em] text-3xl shadow-2xl transition-transform active:scale-95">Opublikuj Jadłospis</button>
                                     </div>
                                 )}
                             </div>
@@ -288,37 +302,37 @@
 
                         {/* WIDOK REZERWACJE */}
                         {activeTab === 'rezerwacje' && (
-                            <div className="bg-white p-12 rounded-[4.5rem] shadow-xl border border-emerald-50 animate-in">
+                            <div className="bg-white p-12 rounded-[5rem] shadow-xl border border-emerald-50 animate-in">
                                 <div className="flex flex-col sm:flex-row justify-between items-center mb-16 gap-10">
                                     <div>
-                                        <h2 className="text-5xl font-black uppercase italic tracking-tighter text-emerald-950">Grafik</h2>
-                                        <p className="text-slate-400 font-bold text-xs uppercase tracking-[0.3em] mt-3 italic">Harcerskie zajęcia programowe</p>
+                                        <h2 className="text-6xl font-black uppercase italic tracking-tighter text-emerald-950 leading-none">Grafik</h2>
+                                        <p className="text-slate-400 font-bold text-[10px] uppercase tracking-[0.4em] mt-4 italic">Rezerwacja punktów programowych</p>
                                     </div>
-                                    <button onClick={() => setIsBookingModalOpen(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white px-12 py-6 rounded-[2.5rem] font-black text-xs uppercase shadow-2xl transition-transform active:scale-95 flex items-center gap-4 tracking-widest">
+                                    <button onClick={() => setIsBookingModalOpen(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white px-12 py-7 rounded-[3rem] font-black text-xs uppercase shadow-2xl transition-transform active:scale-95 flex items-center gap-4 tracking-widest leading-none">
                                         <i data-lucide="plus" className="w-5 h-5"></i> Dodaj wpis
                                     </button>
                                 </div>
                                 <div className="space-y-6">
                                     {reservations.length > 0 ? (
                                         reservations.sort((a,b) => a.date.localeCompare(b.date) || a.timeStart.localeCompare(b.timeStart)).map(res => (
-                                            <div key={res.id} className="flex flex-col md:flex-row justify-between items-center p-10 bg-slate-50 rounded-[3.5rem] hover:bg-emerald-50 transition-all border border-emerald-100/30 group shadow-sm">
+                                            <div key={res.id} className="flex flex-col md:flex-row justify-between items-center p-12 bg-slate-50 rounded-[4rem] hover:bg-emerald-50 transition-all border border-emerald-100/40 group shadow-sm">
                                                 <div className="text-center md:text-left mb-8 md:mb-0">
-                                                    <div className="font-black text-emerald-950 uppercase text-3xl tracking-tighter leading-none italic">{res.location}</div>
-                                                    <div className="flex flex-wrap items-center gap-4 mt-4 justify-center md:justify-start">
-                                                        <span className="bg-white px-4 py-1.5 rounded-xl text-[10px] font-black text-emerald-700 border border-emerald-100 uppercase shadow-sm italic">{res.group}</span>
-                                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-100 px-3 py-1 rounded-full">{res.date}</span>
+                                                    <div className="font-black text-emerald-950 uppercase text-4xl tracking-tighter leading-none italic">{res.location}</div>
+                                                    <div className="flex flex-wrap items-center gap-4 mt-6 justify-center md:justify-start">
+                                                        <span className="bg-white px-5 py-2 rounded-2xl text-[10px] font-black text-emerald-700 border border-emerald-100 uppercase shadow-sm italic">{res.group}</span>
+                                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-200/50 px-4 py-1.5 rounded-full">{res.date}</span>
                                                     </div>
                                                 </div>
                                                 <div className="flex items-center gap-10 w-full md:w-auto">
-                                                    <div className="font-mono font-black text-3xl bg-white px-10 py-5 rounded-[2.5rem] border border-emerald-50 text-emerald-900 shadow-inner flex-1 text-center md:flex-none tabular-nums italic text-center leading-none">
+                                                    <div className="font-mono font-black text-4xl bg-white px-12 py-6 rounded-[3rem] border border-emerald-50 text-emerald-900 shadow-inner flex-1 text-center md:flex-none tabular-nums italic leading-none">
                                                         {res.timeStart}-{res.timeEnd}
                                                     </div>
-                                                    <button onClick={() => deleteReservation(res.id)} className="p-5 text-slate-200 hover:text-red-500 font-bold transition-all text-3xl hover:bg-red-50 rounded-3xl">✕</button>
+                                                    <button onClick={() => deleteReservation(res.id)} className="p-6 text-slate-200 hover:text-red-500 font-bold transition-all text-4xl hover:bg-red-50 rounded-[2rem]">✕</button>
                                                 </div>
                                             </div>
                                         ))
                                     ) : (
-                                        <div className="text-center py-40 text-slate-200 font-black uppercase tracking-[0.5em] text-4xl italic">Grafik pusty</div>
+                                        <div className="text-center py-48 text-slate-200 font-black uppercase tracking-[0.5em] text-5xl italic opacity-30">Grafik pusty</div>
                                     )}
                                 </div>
                             </div>
@@ -326,63 +340,64 @@
 
                         {/* WIDOK WYCIECZKI */}
                         {activeTab === 'wycieczki' && (
-                            <div className="bg-white p-12 rounded-[4.5rem] shadow-xl border border-blue-100 animate-in">
-                                <h2 className="text-4xl font-black uppercase mb-10 italic tracking-tighter flex items-center gap-6 text-slate-900">
-                                    <i data-lucide="compass" className="text-blue-600 w-10 h-10"></i>
+                            <div className="bg-white p-12 rounded-[5rem] shadow-xl border border-blue-100 animate-in">
+                                <h2 className="text-5xl font-black uppercase mb-12 italic tracking-tighter flex items-center gap-8 text-slate-900 leading-none">
+                                    <i data-lucide="compass" className="text-blue-600 w-12 h-12"></i>
                                     Wycieczki / Wyjścia
                                 </h2>
-                                <textarea className="w-full h-[600px] p-12 bg-blue-50/20 border-2 border-blue-100 rounded-[4rem] outline-none font-mono text-2xl font-bold leading-relaxed shadow-inner focus:border-blue-400 transition-all" value={extraContent.wycieczki} onChange={e => updateContent('wycieczki', e.target.value)} placeholder="Zapisz: Godzina, Grupa, Miejsce docelowe, Opiekunowie..." />
+                                <textarea className="w-full h-[650px] p-16 bg-blue-50/20 border-2 border-blue-100 rounded-[5rem] outline-none font-mono text-3xl font-bold leading-relaxed shadow-inner focus:border-blue-400 transition-all" value={extraContent.wycieczki} onChange={e => updateContent('wycieczki', e.target.value)} placeholder="Zapisz: Godzina, Grupa, Miejsce docelowe, Opiekunowie..." />
                             </div>
                         )}
 
                         {/* WIDOK KONTAKT */}
                         {activeTab === 'kontakt' && (
-                            <div className="bg-white p-12 rounded-[4.5rem] shadow-xl border border-red-100 animate-in">
-                                <h2 className="text-4xl font-black uppercase mb-10 italic text-red-600 flex items-center gap-6">
-                                    <i data-lucide="phone" className="text-red-600 w-10 h-10"></i>
+                            <div className="bg-white p-12 rounded-[5rem] shadow-xl border border-red-100 animate-in">
+                                <h2 className="text-5xl font-black uppercase mb-12 italic text-red-600 flex items-center gap-8 leading-none">
+                                    <i data-lucide="phone" className="text-red-600 w-12 h-12"></i>
                                     Ważne Numery
                                 </h2>
-                                <textarea className="w-full h-[600px] p-12 bg-red-50/20 border-2 border-red-100 rounded-[4rem] outline-none font-black text-2xl text-red-900 leading-relaxed shadow-inner focus:border-red-400 transition-all" value={extraContent.kontakt} onChange={e => updateContent('kontakt', e.target.value)} placeholder="Komendant, Służby, Hufiec..." />
+                                <textarea className="w-full h-[650px] p-16 bg-red-50/20 border-2 border-red-100 rounded-[5rem] outline-none font-black text-3xl text-red-900 leading-relaxed shadow-inner focus:border-red-400 transition-all" value={extraContent.kontakt} onChange={e => updateContent('kontakt', e.target.value)} placeholder="Komendant, Służby, Hufiec..." />
                             </div>
                         )}
                     </main>
 
                     {/* MODAL REZERWACJI */}
                     {isBookingModalOpen && (
-                        <div className="fixed inset-0 bg-emerald-950/95 backdrop-blur-2xl z-[100] flex items-center justify-center p-4 overflow-y-auto">
-                            <div className="bg-white w-full max-w-2xl rounded-[5rem] p-16 shadow-2xl relative overflow-hidden animate-in">
-                                <img src={IMG_LOGO} className="absolute -top-20 -left-20 w-72 h-72 opacity-5 grayscale" />
-                                <div className="flex justify-between items-center mb-12 relative z-10">
-                                    <h2 className="text-4xl font-black uppercase italic tracking-tighter text-emerald-950">Nowy wpis</h2>
-                                    <button onClick={() => setIsBookingModalOpen(false)} className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center font-black hover:bg-red-50 hover:text-red-500 transition-all text-xl">✕</button>
+                        <div className="fixed inset-0 bg-emerald-950/95 backdrop-blur-3xl z-[100] flex items-center justify-center p-4 overflow-y-auto">
+                            <div className="bg-white w-full max-w-3xl rounded-[6rem] p-20 shadow-2xl relative overflow-hidden animate-in">
+                                <img src={IMG_LOGO} className="absolute -top-24 -left-24 w-96 h-96 opacity-5 grayscale" />
+                                <div className="flex justify-between items-center mb-16 relative z-10">
+                                    <h2 className="text-5xl font-black uppercase italic tracking-tighter text-emerald-950 leading-none">Zajmij Miejsce</h2>
+                                    <button onClick={() => setIsBookingModalOpen(false)} className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center font-black hover:bg-red-50 hover:text-red-500 transition-all text-2xl shadow-inner">✕</button>
                                 </div>
-                                <form onSubmit={handleAdd} className="space-y-8 relative z-10">
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-black uppercase tracking-widest text-emerald-900 ml-8 opacity-40 italic">Lokalizacja</label>
-                                        <select name="location" className="w-full p-7 bg-slate-50 rounded-[3rem] border-none font-black text-xl appearance-none cursor-pointer focus:ring-4 focus:ring-emerald-100 transition-all shadow-sm italic">
+                                <form onSubmit={handleAdd} className="space-y-10 relative z-10">
+                                    <div className="space-y-3">
+                                        <label className="text-[10px] font-black uppercase tracking-[0.5em] text-emerald-900 ml-10 opacity-40 italic">Lokalizacja punktu</label>
+                                        <select name="location" className="w-full p-8 bg-slate-50 rounded-[3.5rem] border-none font-black text-2xl appearance-none cursor-pointer focus:ring-4 focus:ring-emerald-100 transition-all shadow-sm italic text-center">
                                             {LOCATIONS.map(l => <option key={l} value={l}>{l}</option>)}
                                         </select>
                                     </div>
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-black uppercase tracking-widest text-emerald-900 ml-8 opacity-40 italic">Nazwa jednostki</label>
-                                        <input name="group" className="w-full p-7 bg-slate-50 rounded-[3rem] border-none font-black text-xl focus:ring-4 focus:ring-emerald-100 transition-all shadow-sm italic" placeholder="np. 22 DH 'Burza'" required />
+                                    <div className="space-y-3">
+                                        <label className="text-[10px] font-black uppercase tracking-[0.5em] text-emerald-900 ml-10 opacity-40 italic">Jednostka / Zastęp</label>
+                                        <input name="group" className="w-full p-8 bg-slate-50 rounded-[3.5rem] border-none font-black text-2xl focus:ring-4 focus:ring-emerald-100 transition-all shadow-sm italic text-center" placeholder="np. 22 DH 'Burza'" required />
                                     </div>
-                                    <div className="grid grid-cols-2 gap-8">
-                                        <div className="space-y-2 text-center">
-                                            <label className="text-[10px] font-black uppercase tracking-widest text-emerald-900 opacity-40 italic">Od godziny</label>
-                                            <input name="timeStart" type="time" className="w-full p-7 bg-slate-50 rounded-[3rem] border-none font-black text-4xl text-center focus:ring-4 focus:ring-emerald-100 transition-all shadow-sm tabular-nums" required />
+                                    <div className="grid grid-cols-2 gap-10">
+                                        <div className="space-y-3 text-center">
+                                            <label className="text-[10px] font-black uppercase tracking-[0.5em] text-emerald-900 opacity-40 italic">Od godziny</label>
+                                            <input name="timeStart" type="time" className="w-full p-8 bg-slate-50 rounded-[3.5rem] border-none font-black text-5xl text-center focus:ring-4 focus:ring-emerald-100 transition-all shadow-sm tabular-nums" required />
                                         </div>
-                                        <div className="space-y-2 text-center">
-                                            <label className="text-[10px] font-black uppercase tracking-widest text-emerald-900 opacity-40 italic">Do godziny</label>
-                                            <input name="timeEnd" type="time" className="w-full p-7 bg-slate-50 rounded-[3rem] border-none font-black text-4xl text-center focus:ring-4 focus:ring-emerald-100 transition-all shadow-sm tabular-nums" required />
+                                        <div className="space-y-3 text-center">
+                                            <label className="text-[10px] font-black uppercase tracking-[0.5em] text-emerald-900 opacity-40 italic">Do godziny</label>
+                                            <input name="timeEnd" type="time" className="w-full p-8 bg-slate-50 rounded-[3.5rem] border-none font-black text-5xl text-center focus:ring-4 focus:ring-emerald-100 transition-all shadow-sm tabular-nums" required />
                                         </div>
                                     </div>
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-black uppercase tracking-widest text-emerald-900 ml-8 opacity-40 italic">Dzień</label>
-                                        <input name="date" type="date" className="w-full p-7 bg-slate-50 rounded-[3rem] border-none font-black text-xl focus:ring-4 focus:ring-emerald-100 transition-all shadow-sm italic" required defaultValue={new Date().toISOString().split('T')[0]} />
+                                    <div className="space-y-3">
+                                        <label className="text-[10px] font-black uppercase tracking-[0.5em] text-emerald-900 ml-10 opacity-40 italic">Dzień rezerwacji</label>
+                                        <input name="date" type="date" className="w-full p-8 bg-slate-50 rounded-[3.5rem] border-none font-black text-2xl focus:ring-4 focus:ring-emerald-100 transition-all shadow-sm italic text-center" required defaultValue={new Date().toISOString().split('T')[0]} />
                                     </div>
-                                    <div className="flex flex-col gap-4 pt-8">
-                                        <button type="submit" className="w-full bg-emerald-600 text-white py-8 rounded-[3.5rem] font-black uppercase tracking-[0.4em] text-2xl shadow-2xl hover:scale-[1.02] active:scale-95 transition-all italic">Zapisz w grafiku</button>
+                                    <div className="flex flex-col gap-6 pt-10">
+                                        <button type="submit" className="w-full bg-emerald-600 text-white py-10 rounded-[4rem] font-black uppercase tracking-[0.5em] text-3xl shadow-2xl hover:scale-[1.02] active:scale-95 transition-all italic leading-none">Zatwierdź grafik</button>
+                                        <button type="button" onClick={() => setIsBookingModalOpen(false)} className="w-full font-black uppercase tracking-[0.5em] text-slate-300 text-[10px] py-4">Powrót</button>
                                     </div>
                                 </form>
                             </div>
@@ -390,9 +405,9 @@
                     )}
 
                     <footer className="fixed bottom-10 left-0 right-0 flex justify-center pointer-events-none z-50 px-6">
-                        <div className="bg-emerald-950/95 backdrop-blur-2xl text-white px-12 py-5 rounded-full text-[10px] font-black uppercase tracking-[0.6em] shadow-2xl border border-white/10 pointer-events-auto flex items-center gap-6 animate-in italic whitespace-nowrap overflow-hidden">
-                            <img src={IMG_LOGO} className="w-8 h-8 rounded-full border border-white/20" />
-                            <span>Biały Brzeg 2026 • Live Monitoring</span>
+                        <div className="bg-emerald-950/95 backdrop-blur-3xl text-white px-14 py-6 rounded-full text-[10px] font-black uppercase tracking-[0.6em] shadow-[0_20px_60px_rgba(0,0,0,0.4)] border border-white/10 pointer-events-auto flex items-center gap-8 animate-in italic whitespace-nowrap overflow-hidden leading-none">
+                            <img src={IMG_LOGO} className="w-10 h-10 rounded-full border border-white/20" />
+                            <span>Biały Brzeg 2026 • Monitor Systemu Akcji Letniej</span>
                         </div>
                     </footer>
                 </div>
@@ -405,10 +420,14 @@
     <style>
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        @keyframes fade-in { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
-        .animate-in { animation: fade-in 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        @keyframes fade-in { from { opacity: 0; transform: translateY(40px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-in { animation: fade-in 0.9s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
         * { -webkit-tap-highlight-color: transparent; }
         body { background-color: #fcfbf7; overflow-x: hidden; }
+        input[type="date"]::-webkit-calendar-picker-indicator {
+            cursor: pointer;
+            filter: invert(1) brightness(0.6);
+        }
     </style>
 </body>
 </html>
