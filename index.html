@@ -80,6 +80,7 @@
             const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
             const [isJadlospisEditing, setIsJadlospisEditing] = useState(false);
             const [passwordInput, setPasswordInput] = useState('');
+            const [bookingError, setBookingError] = useState(null);
             const [db, setDb] = useState(null);
             const [user, setUser] = useState(null);
             const [error, setError] = useState(null);
@@ -87,11 +88,20 @@
 
             const appId = typeof __app_id !== 'undefined' ? __app_id : 'stanica-bialy-brzeg';
 
-            // Daily Quote Logic
             const dailyQuote = useMemo(() => {
                 const dayOfYear = Math.floor((currentTime - new Date(currentTime.getFullYear(), 0, 0)) / (1000 * 60 * 60 * 24));
                 return BP_QUOTES[dayOfYear % BP_QUOTES.length];
             }, [currentTime.toDateString()]);
+
+            // Helper to check if a reservation is in the future/active
+            const isReservationActive = (date, timeEnd) => {
+                const todayStr = currentTime.toISOString().split('T')[0];
+                const nowTimeStr = currentTime.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
+                
+                if (date > todayStr) return true;
+                if (date === todayStr && timeEnd > nowTimeStr) return true;
+                return false;
+            };
 
             useEffect(() => {
                 const startApp = async () => {
@@ -156,6 +166,7 @@
 
             const handleAdd = async (e) => {
                 e.preventDefault();
+                setBookingError(null);
                 if (!user || !db) return;
                 
                 const formData = {
@@ -166,6 +177,32 @@
                     date: e.target.date.value,
                     createdAt: Date.now()
                 };
+
+                const todayStr = currentTime.toISOString().split('T')[0];
+                const nowTimeStr = currentTime.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
+
+                // Validation: Past check
+                if (formData.date < todayStr || (formData.date === todayStr && formData.timeStart < nowTimeStr)) {
+                    setBookingError("Nie można dokonać rezerwacji wstecz!");
+                    return;
+                }
+
+                if (formData.timeEnd <= formData.timeStart) {
+                    setBookingError("Godzina zakończenia musi być późniejsza niż rozpoczęcia!");
+                    return;
+                }
+
+                // Validation: Overlap check
+                const conflict = reservations.find(res => 
+                    res.location === formData.location && 
+                    res.date === formData.date && 
+                    ((formData.timeStart < res.timeEnd && formData.timeEnd > res.timeStart))
+                );
+
+                if (conflict) {
+                    setBookingError(`To miejsce jest już zajęte przez: ${conflict.group}`);
+                    return;
+                }
                 
                 try {
                     const resCol = window.fb.collection(db, 'artifacts', appId, 'public', 'data', 'reservations');
@@ -173,6 +210,7 @@
                     setIsBookingModalOpen(false);
                 } catch (err) {
                     console.error("Add Doc Error:", err);
+                    setBookingError("Błąd zapisu w bazie danych.");
                 }
             };
 
@@ -273,8 +311,9 @@
                                         Dzisiejszy Grafik
                                     </h2>
                                     <div className="space-y-4 flex-1">
-                                        {reservations.length > 0 ? (
+                                        {reservations.filter(r => isReservationActive(r.date, r.timeEnd)).length > 0 ? (
                                             reservations
+                                                .filter(r => isReservationActive(r.date, r.timeEnd))
                                                 .sort((a, b) => a.date.localeCompare(b.date) || a.timeStart.localeCompare(b.timeStart))
                                                 .map(r => (
                                                 <div key={r.id} className="p-6 bg-emerald-50/50 border border-emerald-100 rounded-[2.5rem] flex justify-between items-center group">
@@ -287,7 +326,7 @@
                                             ))
                                         ) : (
                                             <div className="text-center py-20 text-slate-300 font-bold italic border-4 border-dashed border-slate-50 rounded-[3rem] uppercase tracking-widest text-[10px]">
-                                                Brak wpisów
+                                                Brak aktywnych wpisów
                                             </div>
                                         )}
                                     </div>
@@ -342,8 +381,11 @@
                                     </button>
                                 </div>
                                 <div className="space-y-6">
-                                    {reservations.length > 0 ? (
-                                        reservations.sort((a,b) => a.date.localeCompare(b.date) || a.timeStart.localeCompare(b.timeStart)).map(res => (
+                                    {reservations.filter(r => isReservationActive(r.date, r.timeEnd)).length > 0 ? (
+                                        reservations
+                                            .filter(r => isReservationActive(r.date, r.timeEnd))
+                                            .sort((a,b) => a.date.localeCompare(b.date) || a.timeStart.localeCompare(b.timeStart))
+                                            .map(res => (
                                             <div key={res.id} className="flex flex-col md:flex-row justify-between items-center p-10 bg-slate-50 rounded-[3.5rem] hover:bg-emerald-50 transition-all border border-emerald-100/40 group shadow-sm">
                                                 <div className="text-center md:text-left mb-8 md:mb-0">
                                                     <div className="font-black text-emerald-950 uppercase text-4xl tracking-tighter leading-none italic">{res.location}</div>
@@ -394,7 +436,7 @@
                                 <img src={IMG_LOGO} className="absolute -top-16 -left-16 w-64 h-64 opacity-5 grayscale" />
                                 <div className="flex justify-between items-center mb-6 relative z-10">
                                     <h2 className="text-2xl font-black uppercase italic tracking-tighter text-emerald-950 leading-none">Zajmij Punkt</h2>
-                                    <button onClick={() => setIsBookingModalOpen(false)} className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center font-black hover:bg-red-50 hover:text-red-500 transition-all text-lg shadow-inner">✕</button>
+                                    <button onClick={() => { setIsBookingModalOpen(false); setBookingError(null); }} className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center font-black hover:bg-red-50 hover:text-red-500 transition-all text-lg shadow-inner">✕</button>
                                 </div>
                                 <form onSubmit={handleAdd} className="space-y-4 relative z-10">
                                     <div className="space-y-1">
@@ -421,9 +463,16 @@
                                         <label className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-900 ml-4 opacity-40 italic">Data</label>
                                         <input name="date" type="date" className="w-full p-4 bg-slate-50 rounded-2xl border-2 border-slate-100 font-bold text-lg outline-none focus:border-emerald-500 transition-all shadow-sm italic" required defaultValue={new Date().toISOString().split('T')[0]} />
                                     </div>
+
+                                    {bookingError && (
+                                        <div className="bg-red-50 border border-red-100 p-3 rounded-xl text-red-600 text-[10px] font-black uppercase text-center italic animate-pulse">
+                                            {bookingError}
+                                        </div>
+                                    )}
+
                                     <div className="flex flex-col gap-3 pt-4">
                                         <button type="submit" className="w-full bg-emerald-600 text-white py-5 rounded-[2rem] font-black uppercase tracking-[0.4em] text-lg shadow-2xl hover:scale-[1.02] active:scale-95 transition-all italic leading-none">Zatwierdź Grafik</button>
-                                        <button type="button" onClick={() => setIsBookingModalOpen(false)} className="w-full font-black uppercase tracking-[0.3em] text-slate-300 text-[10px] py-1">Anuluj</button>
+                                        <button type="button" onClick={() => { setIsBookingModalOpen(false); setBookingError(null); }} className="w-full font-black uppercase tracking-[0.3em] text-slate-300 text-[10px] py-1">Anuluj</button>
                                     </div>
                                 </form>
                             </div>
