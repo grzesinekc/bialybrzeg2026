@@ -17,8 +17,10 @@
         import { getFirestore, collection, addDoc, onSnapshot, doc, setDoc, deleteDoc, query } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
+        // --- KONFIGURACJA FIREBASE ---
+        // Tutaj wklejasz klucz skopiowany z przycisku "Pokaż klucz" (BB)
         const firebaseConfig = {
-            apiKey: "AIzaSyCauw7c_x7mhypk9bYQ0nxADiToXHnJjY", 
+            apiKey: "AIzaSyA2l0_SaJEDGqqZ2x2v66wUD2iBKuu6TyE", 
             authDomain: "stanica-bialy-brzeg.firebaseapp.com",
             projectId: "stanica-bialy-brzeg",
             storageBucket: "stanica-bialy-brzeg.firebasestorage.app",
@@ -96,7 +98,7 @@
                     setReservations(snap.docs.map(d => ({ id: d.id, ...d.data() })));
                 }, (err) => {
                     setErrorCode('firestore-error');
-                    setError(err.message);
+                    setError("Twoja strona nie ma uprawnień do bazy danych. Sprawdź czy w ustawieniach klucza BB wybrałeś 'Cloud Firestore API'.");
                 });
 
                 const unsubContent = window.fb.onSnapshot(window.fb.doc(db, 'content', 'main'), (snap) => {
@@ -120,7 +122,7 @@
                 if (hashedInput === COMMANDANT_HASH) {
                     setIsJadlospisEditing(true);
                 } else {
-                    alert("Nieprawidłowe hasło komendanta!");
+                    alert("Hasło komendanta jest nieprawidłowe.");
                 }
             };
 
@@ -136,9 +138,9 @@
                 
                 try {
                     await window.fb.addDoc(window.fb.collection(db, 'reservations'), formData);
-                    setIsBookingModalOpen(false); // Automatyczne zamykanie okna
+                    setIsBookingModalOpen(false); // Okno zamknie się automatycznie
                 } catch (err) {
-                    alert("Wystąpił błąd podczas zapisu: " + err.message);
+                    alert("Błąd zapisu: " + err.message);
                 }
             };
 
@@ -148,30 +150,21 @@
             };
 
             const deleteReservation = async (id) => {
-                if(confirm("Czy na pewno chcesz usunąć ten wpis z grafiku?")) {
+                if(confirm("Usunąć ten wpis?")) {
                     await window.fb.deleteDoc(window.fb.doc(db, 'reservations', id));
                 }
             }
 
             if (error) return (
                 <div className="min-h-screen bg-red-50 flex flex-col items-center justify-center p-6 text-center">
-                    <div className="bg-white p-10 rounded-[3rem] shadow-2xl border-4 border-red-100 max-w-xl w-full">
-                        <img src={IMG_LOGO} className="w-24 h-24 mx-auto mb-8 rounded-full border-2 border-slate-100 shadow-xl" />
-                        <h2 className="text-red-600 font-black text-4xl mb-2 uppercase italic tracking-tighter leading-none">Status: Błąd</h2>
-                        <p className="text-slate-400 font-black text-[10px] uppercase tracking-[0.4em] mb-8 italic">Diagnostic Code: {errorCode}</p>
-                        
-                        <div className="bg-slate-50 p-8 rounded-[2rem] border border-slate-200 mb-8 text-left space-y-5">
-                            <p className="text-slate-700 font-bold text-base leading-relaxed">{error}</p>
-                            <div className="text-[11px] text-slate-500 font-medium border-t pt-5">
-                                <p className="font-black uppercase text-slate-800 mb-3 tracking-widest italic">Ostatnia próba ratunku:</p>
-                                <ol className="list-decimal ml-5 space-y-3">
-                                    <li>Sprawdź <span className="font-black text-slate-900 italic">Firebase -> Auth -> Settings -> Authorized domains</span> (dodaj grzesinekc.github.io).</li>
-                                    <li>Sprawdź <span className="font-black text-slate-900 italic">Google Cloud -> Credentials</span> (klucz musi mieć gwiazdkę na końcu adresu: grzesinekc.github.io/*).</li>
-                                    <li>Jeśli to nie działa, <span className="font-black text-emerald-600 underline">wygeneruj całkiem nowy klucz</span> i wklej go poniżej.</li>
-                                </ol>
-                            </div>
+                    <div className="bg-white p-12 rounded-[4rem] shadow-2xl border-4 border-red-100 max-w-xl w-full">
+                        <img src={IMG_LOGO} className="w-24 h-24 mx-auto mb-8 rounded-full shadow-lg border-2 border-slate-50" />
+                        <h2 className="text-red-600 font-black text-4xl mb-4 uppercase italic tracking-tighter leading-none">Status: Błąd</h2>
+                        <div className="bg-slate-50 p-8 rounded-[2.5rem] border border-slate-200 mb-8 text-left space-y-4">
+                            <p className="text-slate-700 font-bold leading-relaxed">{error}</p>
+                            <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest border-t pt-4">Kod diagnostyczny: {errorCode}</p>
                         </div>
-                        <button onClick={() => window.location.reload()} className="w-full bg-slate-900 text-white py-5 rounded-[2rem] font-black uppercase tracking-[0.4em] hover:bg-black transition-all shadow-2xl active:scale-95 text-xs">Odśwież i ponów próbę</button>
+                        <button onClick={() => window.location.reload()} className="w-full bg-slate-900 text-white py-5 rounded-[2rem] font-black uppercase tracking-[0.3em] hover:bg-black transition-all shadow-xl">Odśwież system</button>
                     </div>
                 </div>
             );
@@ -179,8 +172,8 @@
             if (!isInit) return (
                 <div className="min-h-screen bg-[#064e3b] flex flex-col items-center justify-center text-white font-black italic">
                     <img src={IMG_LOGO} alt="Logo BB" className="w-32 h-32 rounded-full mb-8 animate-pulse shadow-2xl border-4 border-white/20" />
-                    <p className="tracking-[0.5em] text-emerald-400 text-[10px] mb-2 uppercase font-black">Hufiec ZHP Radomsko</p>
-                    <p className="animate-pulse">SYNCHRONIZACJA Z BAZĄ STANICY...</p>
+                    <div className="tracking-[0.4em] text-emerald-400 text-[10px] mb-2 uppercase">Hufiec ZHP Radomsko</div>
+                    PRZYGOTOWANIE SYSTEMU...
                 </div>
             );
 
@@ -190,25 +183,25 @@
                         className="bg-emerald-950 text-white p-8 md:p-24 relative overflow-hidden bg-cover bg-center"
                         style={{ backgroundImage: `url('${IMG_HEADER}')` }}
                     >
-                        <div className="absolute inset-0 bg-emerald-950/80 backdrop-blur-[1.5px]"></div>
+                        <div className="absolute inset-0 bg-emerald-950/85 backdrop-blur-[2px]"></div>
                         
                         <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-10 relative z-10">
                             <div className="flex flex-col md:flex-row items-center gap-10 text-center md:text-left">
-                                <img src={IMG_LOGO} alt="Logo BB" className="w-24 h-24 md:w-44 md:h-44 rounded-full border-4 border-white/20 shadow-2xl transition-transform hover:scale-110 duration-500" />
+                                <img src={IMG_LOGO} alt="Logo BB" className="w-24 h-24 md:w-44 md:h-44 rounded-full border-4 border-white/20 shadow-2xl" />
                                 <div>
                                     <h1 className="text-5xl md:text-8xl font-black italic tracking-tighter leading-none">BIAŁY BRZEG 2026</h1>
-                                    <p className="text-emerald-400 font-black uppercase tracking-[0.5em] text-[10px] mt-8 flex items-center justify-center md:justify-start gap-3 italic">
-                                        <span className="w-3 h-3 bg-emerald-400 rounded-full animate-pulse shadow-[0_0_15px_rgba(52,211,153,0.8)]"></span>
-                                        LIVE MONITORING SYSTEM
+                                    <p className="text-emerald-400 font-black uppercase tracking-[0.4em] text-[10px] mt-8 flex items-center justify-center md:justify-start gap-4">
+                                        <span className="w-3 h-3 bg-emerald-400 rounded-full animate-pulse"></span>
+                                        System Operacyjny Stanicy
                                     </p>
                                 </div>
                             </div>
-                            <div className="bg-black/40 p-12 rounded-[3.5rem] text-center border border-white/10 backdrop-blur-2xl shadow-2xl min-w-[340px]">
+                            <div className="bg-black/40 p-12 rounded-[3.5rem] text-center border border-white/10 backdrop-blur-3xl shadow-2xl min-w-[340px]">
                                 <div className="text-7xl font-mono font-black text-emerald-300 tracking-tighter tabular-nums leading-none">
                                     {currentTime.toLocaleTimeString('pl-PL')}
                                 </div>
-                                <div className="text-[10px] font-black uppercase tracking-[0.5em] opacity-40 mt-6 italic text-center">
-                                    Hufiec Radomsko • Stanica BB
+                                <div className="text-[10px] font-black uppercase tracking-[0.5em] opacity-40 mt-6 italic text-center text-emerald-100">
+                                    {currentTime.toLocaleDateString('pl-PL', { weekday: 'long', day: 'numeric', month: 'long' })}
                                 </div>
                             </div>
                         </div>
@@ -223,7 +216,7 @@
                                 { id: 'wycieczki', label: 'Wycieczki', icon: 'compass' },
                                 { id: 'kontakt', label: 'Kontakt', icon: 'phone' }
                             ].map(tab => (
-                                <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex items-center gap-3 px-10 py-6 rounded-[2.5rem] transition-all flex-1 justify-center whitespace-nowrap ${activeTab === tab.id ? 'bg-emerald-600 text-white shadow-xl scale-[1.03] font-black' : 'text-emerald-900/40 hover:bg-emerald-50 font-bold'}`}>
+                                <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex items-center gap-3 px-10 py-6 rounded-[2.5rem] transition-all flex-1 justify-center whitespace-nowrap ${activeTab === tab.id ? 'bg-emerald-600 text-white shadow-xl scale-[1.02] font-black' : 'text-emerald-900/40 hover:bg-emerald-50 font-bold'}`}>
                                     <i data-lucide={tab.icon} className="w-5 h-5"></i>
                                     <span className="text-[11px] uppercase tracking-widest">{tab.label}</span>
                                 </button>
@@ -238,31 +231,31 @@
                                 <div className="bg-white p-14 rounded-[4.5rem] shadow-sm border border-emerald-50 flex flex-col">
                                     <h2 className="text-3xl font-black uppercase italic mb-10 flex items-center gap-5 text-emerald-950 leading-none">
                                         <i data-lucide="calendar" className="text-emerald-600 w-8 h-8"></i>
-                                        Plan na dzisiaj
+                                        Plan dnia
                                     </h2>
                                     <div className="space-y-5 flex-1">
                                         {reservations.filter(r => r.date === new Date().toISOString().split('T')[0]).length > 0 ? (
                                             reservations.filter(r => r.date === new Date().toISOString().split('T')[0]).map(r => (
-                                                <div key={r.id} className="p-7 bg-emerald-50/50 border border-emerald-100 rounded-[2.5rem] flex justify-between items-center group transition-all hover:bg-emerald-100/50">
+                                                <div key={r.id} className="p-7 bg-emerald-50/50 border border-emerald-100 rounded-[2.5rem] flex justify-between items-center group">
                                                     <span className="font-black text-emerald-800 text-3xl tabular-nums leading-none italic">{r.timeStart} - {r.timeEnd}</span>
                                                     <span className="uppercase font-black text-emerald-950 text-[10px] tracking-widest bg-white px-4 py-2 rounded-full shadow-sm">{r.location}</span>
                                                 </div>
                                             ))
                                         ) : (
-                                            <div className="text-center py-24 text-slate-300 font-bold italic border-4 border-dashed border-slate-50 rounded-[3.5rem] uppercase tracking-[0.4em] text-[10px]">
-                                                Brak zaplanowanych zajęć
+                                            <div className="text-center py-20 text-slate-300 font-bold italic border-4 border-dashed border-slate-50 rounded-[3rem] uppercase tracking-widest text-[10px]">
+                                                Brak aktywności na dziś
                                             </div>
                                         )}
                                     </div>
                                 </div>
                                 <div className="bg-emerald-900 text-white p-14 rounded-[4.5rem] shadow-2xl relative overflow-hidden group">
-                                    <img src={IMG_LOGO} className="absolute -bottom-24 -right-24 w-96 h-96 opacity-5 grayscale group-hover:rotate-12 transition-transform duration-1000" />
+                                    <img src={IMG_LOGO} className="absolute -bottom-24 -right-24 w-96 h-96 opacity-5 grayscale" />
                                     <h2 className="text-3xl font-black mb-10 uppercase italic flex items-center gap-5 text-emerald-400 leading-none">
                                         <i data-lucide="utensils" className="text-emerald-400 w-8 h-8"></i>
                                         Kuchnia BB
                                     </h2>
                                     <div className="italic text-emerald-50 text-3xl whitespace-pre-wrap leading-relaxed font-black">
-                                        {extraContent.jadlospis || "Menu zostanie wkrótce ogłoszone."}
+                                        {extraContent.jadlospis || "Menu w trakcie ustalania."}
                                     </div>
                                 </div>
                             </div>
@@ -271,14 +264,14 @@
                         {/* JADŁOSPIS */}
                         {activeTab === 'jadlospis' && (
                             <div className="max-w-4xl mx-auto bg-white p-14 rounded-[5.5rem] shadow-2xl text-center border border-orange-100 animate-in">
-                                <h2 className="text-7xl font-black uppercase mb-16 italic tracking-tighter text-slate-900 leading-none">Menu Dnia</h2>
+                                <h2 className="text-7xl font-black uppercase mb-16 italic tracking-tighter text-slate-900 leading-none">Karta Dań</h2>
                                 {!isJadlospisEditing ? (
                                     <>
-                                        <div className="p-20 bg-orange-50/50 rounded-[5rem] italic text-4xl min-h-[550px] mb-16 flex items-center justify-center border-2 border-orange-100/30 font-black leading-relaxed shadow-inner text-slate-800">
-                                            {extraContent.jadlospis || "Zapach obiadu niesie się przez las..."}
+                                        <div className="p-20 bg-orange-50/50 rounded-[5rem] italic text-4xl min-h-[500px] mb-16 flex items-center justify-center border-2 border-orange-100/30 font-black leading-relaxed shadow-inner text-slate-800">
+                                            {extraContent.jadlospis || "Menu wkrótce..."}
                                         </div>
-                                        <div className="bg-slate-50 p-14 rounded-[4.5rem] border border-slate-200">
-                                            <div className="text-[10px] font-black uppercase tracking-[0.6em] text-slate-400 mb-10 italic">Weryfikacja Komendanta</div>
+                                        <div className="bg-slate-50 p-14 rounded-[4rem] border border-slate-200">
+                                            <div className="text-[10px] font-black uppercase tracking-[0.5em] text-slate-400 mb-10 italic">Weryfikacja Komendanta</div>
                                             <form onSubmit={checkPassword} className="flex flex-col sm:flex-row gap-5 w-full max-w-sm mx-auto">
                                                 <input type="password" placeholder="Hasło..." className="flex-1 p-7 bg-white border-2 rounded-[2rem] outline-none focus:border-emerald-500 font-black shadow-sm text-2xl" onChange={e => setPasswordInput(e.target.value)} />
                                                 <button type="submit" className="bg-slate-900 text-white px-14 py-7 rounded-[2rem] font-black text-[11px] uppercase hover:bg-black transition-all shadow-xl active:scale-95 tracking-widest leading-none">Edytuj</button>
@@ -287,8 +280,8 @@
                                     </>
                                 ) : (
                                     <div className="space-y-10 animate-in zoom-in-95 duration-200">
-                                        <textarea className="w-full h-[650px] p-20 border-4 border-emerald-100 rounded-[5rem] outline-none text-4xl italic font-black text-center bg-emerald-50/20 shadow-inner focus:border-emerald-500 transition-all leading-relaxed" value={extraContent.jadlospis} onChange={e => updateContent('jadlospis', e.target.value)} />
-                                        <button onClick={() => setIsJadlospisEditing(false)} className="w-full bg-emerald-600 text-white py-12 rounded-[3.5rem] font-black uppercase tracking-[0.5em] text-3xl shadow-2xl transition-transform active:scale-95 leading-none italic">Zatwierdź menu</button>
+                                        <textarea className="w-full h-[600px] p-20 border-4 border-emerald-100 rounded-[5rem] outline-none text-4xl italic font-black text-center bg-emerald-50/20 shadow-inner focus:border-emerald-500 transition-all leading-relaxed" value={extraContent.jadlospis} onChange={e => updateContent('jadlospis', e.target.value)} />
+                                        <button onClick={() => setIsJadlospisEditing(false)} className="w-full bg-emerald-600 text-white py-12 rounded-[4rem] font-black uppercase tracking-[0.5em] text-3xl shadow-2xl transition-transform active:scale-95 leading-none italic">Zatwierdź menu</button>
                                     </div>
                                 )}
                             </div>
@@ -300,7 +293,7 @@
                                 <div className="flex flex-col sm:flex-row justify-between items-center mb-20 gap-12">
                                     <div>
                                         <h2 className="text-7xl font-black uppercase italic tracking-tighter text-emerald-950 leading-none">Grafik</h2>
-                                        <p className="text-slate-400 font-bold text-[11px] uppercase tracking-[0.5em] mt-6 italic">Monitor punktów programowych</p>
+                                        <p className="text-slate-400 font-bold text-[11px] uppercase tracking-[0.5em] mt-6 italic">Monitor zajętości punktów</p>
                                     </div>
                                     <button onClick={() => setIsBookingModalOpen(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white px-14 py-8 rounded-[3.5rem] font-black text-xs uppercase shadow-2xl transition-transform active:scale-95 flex items-center gap-5 tracking-widest leading-none">
                                         <i data-lucide="plus" className="w-6 h-6"></i> Dodaj wpis
@@ -318,7 +311,7 @@
                                                     </div>
                                                 </div>
                                                 <div className="flex items-center gap-12 w-full md:w-auto">
-                                                    <div className="font-mono font-black text-5xl bg-white px-14 py-7 rounded-[3.5rem] border border-emerald-50 text-emerald-900 shadow-inner flex-1 text-center md:flex-none tabular-nums italic leading-none">
+                                                    <div className="font-mono font-black text-5xl bg-white px-14 py-7 rounded-[3.5rem] border border-emerald-50 text-emerald-900 shadow-inner flex-1 text-center md:flex-none tabular-nums italic text-center leading-none">
                                                         {res.timeStart}-{res.timeEnd}
                                                     </div>
                                                     <button onClick={() => deleteReservation(res.id)} className="p-8 text-slate-200 hover:text-red-500 font-bold transition-all text-5xl hover:bg-red-50 rounded-[2.5rem]">✕</button>
@@ -339,7 +332,7 @@
                                     <i data-lucide="compass" className="text-blue-600 w-14 h-14"></i>
                                     Wycieczki
                                 </h2>
-                                <textarea className="w-full h-[700px] p-20 bg-blue-50/20 border-2 border-blue-100 rounded-[5.5rem] outline-none font-mono text-3xl font-bold leading-relaxed shadow-inner focus:border-blue-400 transition-all" value={extraContent.wycieczki} onChange={e => updateContent('wycieczki', e.target.value)} placeholder="Zapisz aktualne wyjścia..." />
+                                <textarea className="w-full h-[700px] p-20 bg-blue-50/20 border-2 border-blue-100 rounded-[5.5rem] outline-none font-mono text-3xl font-bold leading-relaxed shadow-inner focus:border-blue-400 transition-all" value={extraContent.wycieczki} onChange={e => updateContent('wycieczki', e.target.value)} placeholder="Zapisz: Godzina wyjścia, Grupa, Cel, Opiekun..." />
                             </div>
                         )}
 
@@ -348,9 +341,9 @@
                             <div className="bg-white p-14 rounded-[5.5rem] shadow-xl border border-red-100 animate-in">
                                 <h2 className="text-6xl font-black uppercase mb-16 italic text-red-600 flex items-center gap-10 leading-none">
                                     <i data-lucide="phone" className="text-red-600 w-14 h-14"></i>
-                                    Alarmowe
+                                    Numery
                                 </h2>
-                                <textarea className="w-full h-[700px] p-20 bg-red-50/20 border-2 border-red-100 rounded-[5.5rem] outline-none font-black text-3xl text-red-900 leading-relaxed shadow-inner focus:border-red-400 transition-all" value={extraContent.kontakt} onChange={e => updateContent('kontakt', e.target.value)} placeholder="Numery do kadry i służb..." />
+                                <textarea className="w-full h-[700px] p-20 bg-red-50/20 border-2 border-red-100 rounded-[5.5rem] outline-none font-black text-3xl text-red-900 leading-relaxed shadow-inner focus:border-red-400 transition-all" value={extraContent.kontakt} onChange={e => updateContent('kontakt', e.target.value)} placeholder="Komendant, Służby, Kwatermistrz..." />
                             </div>
                         )}
                     </main>
@@ -366,32 +359,32 @@
                                 </div>
                                 <form onSubmit={handleAdd} className="space-y-12 relative z-10">
                                     <div className="space-y-4">
-                                        <label className="text-[11px] font-black uppercase tracking-[0.6em] text-emerald-900 ml-12 opacity-40 italic">Lokalizacja punktu</label>
+                                        <label className="text-[11px] font-black uppercase tracking-[0.6em] text-emerald-900 ml-12 opacity-40 italic">Miejsce</label>
                                         <select name="location" className="w-full p-9 bg-slate-50 rounded-[4rem] border-none font-black text-3xl appearance-none cursor-pointer focus:ring-4 focus:ring-emerald-100 transition-all shadow-sm italic text-center">
                                             {LOCATIONS.map(l => <option key={l} value={l}>{l}</option>)}
                                         </select>
                                     </div>
                                     <div className="space-y-4">
-                                        <label className="text-[11px] font-black uppercase tracking-[0.6em] text-emerald-900 ml-12 opacity-40 italic">Jednostka / Zastęp</label>
+                                        <label className="text-[11px] font-black uppercase tracking-[0.6em] text-emerald-900 ml-12 opacity-40 italic">Jednostka</label>
                                         <input name="group" className="w-full p-9 bg-slate-50 rounded-[4rem] border-none font-black text-3xl focus:ring-4 focus:ring-emerald-100 transition-all shadow-sm italic text-center" placeholder="np. 22 DH 'Burza'" required />
                                     </div>
                                     <div className="grid grid-cols-2 gap-12">
                                         <div className="space-y-4 text-center">
-                                            <label className="text-[11px] font-black uppercase tracking-[0.6em] text-emerald-900 opacity-40 italic">Od godziny</label>
+                                            <label className="text-[11px] font-black uppercase tracking-[0.6em] text-emerald-900 opacity-40 italic">Start</label>
                                             <input name="timeStart" type="time" className="w-full p-9 bg-slate-50 rounded-[4rem] border-none font-black text-6xl text-center focus:ring-4 focus:ring-emerald-100 transition-all shadow-sm tabular-nums" required />
                                         </div>
                                         <div className="space-y-4 text-center">
-                                            <label className="text-[11px] font-black uppercase tracking-[0.6em] text-emerald-900 opacity-40 italic">Do godziny</label>
+                                            <label className="text-[11px] font-black uppercase tracking-[0.6em] text-emerald-900 opacity-40 italic">Koniec</label>
                                             <input name="timeEnd" type="time" className="w-full p-9 bg-slate-50 rounded-[4rem] border-none font-black text-6xl text-center focus:ring-4 focus:ring-emerald-100 transition-all shadow-sm tabular-nums" required />
                                         </div>
                                     </div>
                                     <div className="space-y-4">
-                                        <label className="text-[11px] font-black uppercase tracking-[0.6em] text-emerald-900 ml-12 opacity-40 italic">Dzień rezerwacji</label>
+                                        <label className="text-[11px] font-black uppercase tracking-[0.6em] text-emerald-900 ml-12 opacity-40 italic">Data</label>
                                         <input name="date" type="date" className="w-full p-9 bg-slate-50 rounded-[4rem] border-none font-black text-3xl focus:ring-4 focus:ring-emerald-100 transition-all shadow-sm italic text-center" required defaultValue={new Date().toISOString().split('T')[0]} />
                                     </div>
                                     <div className="flex flex-col gap-8 pt-12">
-                                        <button type="submit" className="w-full bg-emerald-600 text-white py-12 rounded-[5rem] font-black uppercase tracking-[0.6em] text-4xl shadow-2xl hover:scale-[1.02] active:scale-95 transition-all italic leading-none">Zatwierdź grafik</button>
-                                        <button type="button" onClick={() => setIsBookingModalOpen(false)} className="w-full font-black uppercase tracking-[0.5em] text-slate-300 text-[11px] py-4">Powrót</button>
+                                        <button type="submit" className="w-full bg-emerald-600 text-white py-12 rounded-[5rem] font-black uppercase tracking-[0.6em] text-4xl shadow-2xl hover:scale-[1.02] active:scale-95 transition-all italic leading-none">Zatwierdź wpis</button>
+                                        <button type="button" onClick={() => setIsBookingModalOpen(false)} className="w-full font-black uppercase tracking-[0.5em] text-slate-300 text-[11px] py-4">Zamknij</button>
                                     </div>
                                 </form>
                             </div>
@@ -401,7 +394,7 @@
                     <footer className="fixed bottom-10 left-0 right-0 flex justify-center pointer-events-none z-50 px-6">
                         <div className="bg-emerald-950/95 backdrop-blur-3xl text-white px-16 py-7 rounded-full text-[11px] font-black uppercase tracking-[0.7em] shadow-[0_25px_70px_rgba(0,0,0,0.5)] border border-white/10 pointer-events-auto flex items-center gap-10 animate-in italic whitespace-nowrap overflow-hidden leading-none">
                             <img src={IMG_LOGO} className="w-12 h-12 rounded-full border border-white/20" />
-                            <span>Biały Brzeg 2026 • Live Monitoring System</span>
+                            <span>Biały Brzeg 2026 • Live Monitoring</span>
                         </div>
                     </footer>
                 </div>
