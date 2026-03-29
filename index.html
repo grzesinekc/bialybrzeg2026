@@ -13,19 +13,20 @@
     
     <!-- Moduły Firebase -->
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, collection, addDoc, onSnapshot, doc, setDoc, deleteDoc, query } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, onSnapshot, doc, setDoc, deleteDoc, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyA2l0_SaJEDGqqZ2x2v66wUD2iBKuu6TyE", 
-            authDomain: "stanica-bialy-brzeg.firebaseapp.com",
-            projectId: "stanica-bialy-brzeg",
-            storageBucket: "stanica-bialy-brzeg.firebasestorage.app",
-            messagingSenderId: "861747237880",
-            appId: "1:861747237880:web:7d3ce04c6250381043fc0d",
-            measurementId: "G-CF6C1FX1C7"
-        };
+        const firebaseConfig = typeof __firebase_config !== 'undefined' 
+            ? JSON.parse(__firebase_config) 
+            : {
+                apiKey: "AIzaSyA2l0_SaJEDGqqZ2x2v66wUD2iBKuu6TyE", 
+                authDomain: "stanica-bialy-brzeg.firebaseapp.com",
+                projectId: "stanica-bialy-brzeg",
+                storageBucket: "stanica-bialy-brzeg.firebasestorage.app",
+                messagingSenderId: "861747237880",
+                appId: "1:861747237880:web:7d3ce04c6250381043fc0d"
+            };
 
         window.fb = { 
             initializeApp, getFirestore, collection, addDoc, onSnapshot, 
@@ -45,6 +46,24 @@
         
         const IMG_HEADER = "https://www.dropbox.com/scl/fi/h35st6ucsgr0vfaqk599p/IDENTYFIKATOR_BEZ-TEKSTU.png?rlkey=ql6aybqsctxferab69ozyhha9&st=g6ywzqam&dl=1";
         const IMG_LOGO = "https://www.dropbox.com/scl/fi/zr8lckek34w630una7jgc/logo-BB.jpg?rlkey=i605zzig81x7l8ji5yhyyiu5y&st=mrxsxpti&dl=1";
+
+        const BP_QUOTES = [
+            "Zostawcie ten świat choć trochę lepszym, niż go zastaliście.",
+            "Najprawdziwsza ścieżka do szczęścia to dawanie go innym.",
+            "Skauting to wielka gra.",
+            "Bądź gotów!",
+            "Patrz szerzej, a gdy już patrzysz szeroko, popatrz jeszcze szerzej.",
+            "Życie bez przygód byłoby strasznie nudne.",
+            "Uśmiech jest kluczem, który pasuje do zamka w sercu każdego człowieka.",
+            "Szczęście nie jest dziełem przypadku, lecz wynikiem wysiłku.",
+            "Prawdziwy skaut widzi we wszystkim dobrą stronę.",
+            "Bóg dał nam świat, abyśmy się nim cieszyli i byli w nim szczęśliwi.",
+            "Starajcie się zostawić po sobie świat nieco lepszym, niż go zastaliście.",
+            "Skauting to szkoła charakteru.",
+            "Wszystko, co warto posiadać, warto też wypracować.",
+            "Uśmiechaj się nawet w trudnościach.",
+            "Szczęście nie przychodzi samo, trzeba go szukać."
+        ];
 
         async function sha256(message) {
             const msgBuffer = new TextEncoder().encode(message);
@@ -67,6 +86,12 @@
             const [isInit, setIsInit] = useState(false);
 
             const appId = typeof __app_id !== 'undefined' ? __app_id : 'stanica-bialy-brzeg';
+
+            // Daily Quote Logic
+            const dailyQuote = useMemo(() => {
+                const dayOfYear = Math.floor((currentTime - new Date(currentTime.getFullYear(), 0, 0)) / (1000 * 60 * 60 * 24));
+                return BP_QUOTES[dayOfYear % BP_QUOTES.length];
+            }, [currentTime.toDateString()]);
 
             useEffect(() => {
                 const startApp = async () => {
@@ -91,6 +116,7 @@
                             setIsInit(true);
                         });
                     } catch (err) {
+                        console.error("Initialization error:", err);
                         setError(err.message);
                     }
                 };
@@ -100,21 +126,20 @@
             useEffect(() => {
                 if (!db || !user) return;
 
-                // RULE 1: Strict Paths for public data
                 const resCol = window.fb.collection(db, 'artifacts', appId, 'public', 'data', 'reservations');
                 const contentDoc = window.fb.doc(db, 'artifacts', appId, 'public', 'data', 'content', 'main');
 
                 const unsubRes = window.fb.onSnapshot(resCol, (snap) => {
                     setReservations(snap.docs.map(d => ({ id: d.id, ...d.data() })));
                 }, (err) => {
-                    console.error("Firestore Error:", err);
-                    if (err.code === 'permission-denied') {
-                        setError("Błąd uprawnień. Upewnij się, że logowanie anonimowe jest włączone w Firebase Console.");
-                    }
+                    console.error("Firestore Error (Reservations):", err);
+                    setError("Błąd dostępu do bazy. Sprawdź połączenie.");
                 });
 
                 const unsubContent = window.fb.onSnapshot(contentDoc, (snap) => {
                     if (snap.exists()) setExtraContent(snap.data());
+                }, (err) => {
+                    console.error("Firestore Error (Content):", err);
                 });
 
                 return () => { unsubRes(); unsubContent(); };
@@ -131,7 +156,7 @@
 
             const handleAdd = async (e) => {
                 e.preventDefault();
-                if (!user) return;
+                if (!user || !db) return;
                 
                 const formData = {
                     location: e.target.location.value,
@@ -139,7 +164,7 @@
                     timeStart: e.target.timeStart.value,
                     timeEnd: e.target.timeEnd.value,
                     date: e.target.date.value,
-                    createdAt: new Date().toISOString()
+                    createdAt: Date.now()
                 };
                 
                 try {
@@ -147,7 +172,7 @@
                     await window.fb.addDoc(resCol, formData);
                     setIsBookingModalOpen(false);
                 } catch (err) {
-                    alert("Błąd zapisu: " + err.message);
+                    console.error("Add Doc Error:", err);
                 }
             };
 
@@ -158,11 +183,9 @@
             };
 
             const deleteReservation = async (id) => {
-                if (!user) return;
-                if(confirm("Usunąć ten wpis?")) {
-                    const resDoc = window.fb.doc(db, 'artifacts', appId, 'public', 'data', 'reservations', id);
-                    await window.fb.deleteDoc(resDoc);
-                }
+                if (!user || !db) return;
+                const resDoc = window.fb.doc(db, 'artifacts', appId, 'public', 'data', 'reservations', id);
+                await window.fb.deleteDoc(resDoc);
             }
 
             const checkPassword = async (e) => {
@@ -171,7 +194,7 @@
                 if (hashedInput === COMMANDANT_HASH) {
                     setIsJadlospisEditing(true);
                 } else {
-                    alert("Hasło komendanta jest nieprawidłowe.");
+                    setPasswordInput('');
                 }
             };
 
@@ -209,9 +232,14 @@
                                 <img src={IMG_LOGO} alt="Logo BB" className="w-24 h-24 md:w-36 md:h-36 rounded-full border-4 border-white/20 shadow-2xl" />
                                 <div>
                                     <h1 className="text-5xl md:text-7xl font-black italic tracking-tighter leading-none">BIAŁY BRZEG 2026</h1>
-                                    <p className="text-emerald-400 font-black uppercase tracking-[0.4em] text-[10px] mt-6 flex items-center justify-center md:justify-start gap-4 italic opacity-80">
-                                        System Live Sync Active
-                                    </p>
+                                    <div className="mt-4 max-w-lg">
+                                        <p className="text-emerald-300 font-bold italic text-lg leading-tight">
+                                            "{dailyQuote}"
+                                        </p>
+                                        <p className="text-emerald-500/60 font-black uppercase tracking-[0.4em] text-[8px] mt-2 italic">
+                                            Robert Baden-Powell
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
                             <div className="bg-black/40 p-10 rounded-[3.5rem] text-center border border-white/10 backdrop-blur-3xl shadow-2xl min-w-[280px]">
@@ -245,16 +273,21 @@
                                         Dzisiejszy Grafik
                                     </h2>
                                     <div className="space-y-4 flex-1">
-                                        {reservations.filter(r => r.date === new Date().toISOString().split('T')[0]).length > 0 ? (
-                                            reservations.filter(r => r.date === new Date().toISOString().split('T')[0]).map(r => (
+                                        {reservations.length > 0 ? (
+                                            reservations
+                                                .sort((a, b) => a.date.localeCompare(b.date) || a.timeStart.localeCompare(b.timeStart))
+                                                .map(r => (
                                                 <div key={r.id} className="p-6 bg-emerald-50/50 border border-emerald-100 rounded-[2.5rem] flex justify-between items-center group">
-                                                    <span className="font-black text-emerald-800 text-2xl tabular-nums leading-none italic">{r.timeStart} - {r.timeEnd}</span>
+                                                    <div className="flex flex-col">
+                                                        <span className="font-black text-emerald-800 text-2xl tabular-nums leading-none italic">{r.timeStart} - {r.timeEnd}</span>
+                                                        <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-1">{r.date}</span>
+                                                    </div>
                                                     <span className="uppercase font-black text-emerald-950 text-[10px] tracking-widest bg-white px-4 py-2 rounded-full shadow-sm">{r.location}</span>
                                                 </div>
                                             ))
                                         ) : (
                                             <div className="text-center py-20 text-slate-300 font-bold italic border-4 border-dashed border-slate-50 rounded-[3rem] uppercase tracking-widest text-[10px]">
-                                                Brak wpisów na dziś
+                                                Brak wpisów
                                             </div>
                                         )}
                                     </div>
@@ -283,7 +316,7 @@
                                         <div className="bg-slate-50 p-12 rounded-[3.5rem] border border-slate-200">
                                             <div className="text-[10px] font-black uppercase tracking-[0.5em] text-slate-400 mb-8 italic">Weryfikacja Komendanta</div>
                                             <form onSubmit={checkPassword} className="flex flex-col sm:flex-row gap-4 w-full max-w-sm mx-auto">
-                                                <input type="password" placeholder="Hasło..." className="flex-1 p-5 bg-white border-2 rounded-2xl outline-none focus:border-emerald-500 font-black shadow-sm text-xl" onChange={e => setPasswordInput(e.target.value)} />
+                                                <input type="password" placeholder="Hasło..." className="flex-1 p-5 bg-white border-2 rounded-2xl outline-none focus:border-emerald-500 font-black shadow-sm text-xl" value={passwordInput} onChange={e => setPasswordInput(e.target.value)} />
                                                 <button type="submit" className="bg-slate-900 text-white px-12 py-5 rounded-2xl font-black text-[10px] uppercase hover:bg-black transition-all shadow-xl active:scale-95 tracking-widest leading-none">Weryfikuj</button>
                                             </form>
                                         </div>
@@ -355,7 +388,6 @@
                         )}
                     </main>
 
-                    {/* MODAL REZERWACJI - POPRAWIONY I ZMNIEJSZONY */}
                     {isBookingModalOpen && (
                         <div className="fixed inset-0 bg-emerald-950/95 backdrop-blur-3xl z-[100] flex items-center justify-center p-4 overflow-y-auto">
                             <div className="bg-white w-full max-w-md rounded-[2.5rem] p-8 shadow-2xl relative overflow-hidden animate-in">
