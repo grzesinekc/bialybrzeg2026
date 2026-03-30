@@ -81,7 +81,11 @@
             const [activeTab, setActiveTab] = useState('home');
             const [currentTime, setCurrentTime] = useState(new Date());
             const [reservations, setReservations] = useState([]);
-            const [extraContent, setExtraContent] = useState({ jadlospis: '', kontakt: '', wycieczki: '' });
+            const [extraContent, setExtraContent] = useState({ 
+                jadlospis: '', 
+                kontakt: `Komendant: hm Agnieszka Ciepielewska 502498709\nz-ca komendanta: hm Grzegorz Ciepielewski 502498610\nKwatermistrz: hm Jacek Kozieł 501294668`, 
+                wycieczki: '' 
+            });
             const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
             const [isJadlospisEditing, setIsJadlospisEditing] = useState(false);
             const [tempJadlospis, setTempJadlospis] = useState('');
