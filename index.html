@@ -163,7 +163,14 @@
                     setReservations(snap.docs.map(d => ({ id: d.id, ...d.data() })));
                 }, (err) => setError("Błąd bazy danych. Sprawdź połączenie."));
                 const unsubContent = window.fb.onSnapshot(contentDoc, (snap) => {
-                    if (snap.exists()) setExtraContent(snap.data());
+                    if (snap.exists()) {
+                        const data = snap.data();
+                        // Zachowujemy statyczny kontakt, ale synchronizujemy resztę
+                        setExtraContent(prev => ({ 
+                            ...data, 
+                            kontakt: prev.kontakt 
+                        }));
+                    }
                 });
                 return () => { unsubRes(); unsubContent(); };
             }, [db, user, appId]);
@@ -407,7 +414,11 @@
                                 <h2 className="text-5xl font-black uppercase mb-12 italic text-red-600 leading-none">
                                     <i data-lucide="phone" className="text-red-600 inline mr-4"></i> Numery
                                 </h2>
-                                <textarea className="w-full h-[600px] p-12 bg-red-50/20 border-2 border-red-100 rounded-[3rem] outline-none font-black text-2xl text-red-900 leading-relaxed focus:border-red-400 transition-colors" value={extraContent.kontakt} onChange={e => updateContent('kontakt', e.target.value)} placeholder="Komendant, Alarmowe..." />
+                                <div className="p-12 bg-red-50/20 border-2 border-red-100 rounded-[3rem] font-black text-2xl text-red-900 leading-relaxed shadow-inner">
+                                    <p className="mb-4">Komendant: hm Agnieszka Ciepielewska 502498709</p>
+                                    <p className="mb-4">z-ca komendanta: hm Grzegorz Ciepielewski 502498610</p>
+                                    <p>Kwatermistrz: hm Jacek Kozieł 501294668</p>
+                                </div>
                             </div>
                         )}
                     </main>
