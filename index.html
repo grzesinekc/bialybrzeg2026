@@ -118,6 +118,7 @@
                 const nowTimeStr = getTimeStr(currentTime);
                 const rDate = date.trim();
                 const rTimeEnd = timeEnd.trim();
+
                 if (rDate > todayStr) return true;
                 if (rDate === todayStr && rTimeEnd > nowTimeStr) return true;
                 return false;
@@ -156,7 +157,7 @@
                 const contentDoc = window.fb.doc(db, 'artifacts', appId, 'public', 'data', 'content', 'main');
                 const unsubRes = window.fb.onSnapshot(resCol, (snap) => {
                     setReservations(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-                }, (err) => setError("Błąd bazy."));
+                }, (err) => setError("Błąd bazy danych."));
                 const unsubContent = window.fb.onSnapshot(contentDoc, (snap) => {
                     if (snap.exists()) setExtraContent(snap.data());
                 });
@@ -186,25 +187,29 @@
                 };
                 const todayStr = getTodayDateStr(currentTime);
                 const nowTimeStr = getTimeStr(currentTime);
+                
                 if (formData.date < todayStr || (formData.date === todayStr && formData.timeStart < nowTimeStr)) {
                     setBookingError("Nie można dokonać rezerwacji wstecz!");
                     return;
                 }
+                
                 const activeRes = reservations.filter(r => isReservationActive(r.date, r.timeEnd));
                 const conflict = activeRes.find(res => 
                     res.location === formData.location && 
                     res.date === formData.date && 
                     ((formData.timeStart < res.timeEnd && formData.timeEnd > res.timeStart))
                 );
+                
                 if (conflict) {
-                    setBookingError(`To miejsce zajęte: ${conflict.group}`);
+                    setBookingError(`To miejsce jest już zajęte przez: ${conflict.group}`);
                     return;
                 }
+                
                 try {
                     const resCol = window.fb.collection(db, 'artifacts', appId, 'public', 'data', 'reservations');
                     await window.fb.addDoc(resCol, formData);
                     setIsBookingModalOpen(false);
-                } catch (err) { setBookingError("Błąd zapisu."); }
+                } catch (err) { setBookingError("Błąd zapisu w bazie."); }
             };
 
             const updateContent = async (key, val) => {
@@ -224,7 +229,6 @@
                 const cleanInput = passwordInput.trim();
                 const hashedInput = await sha256(cleanInput);
                 
-                // Sprawdzenie hasha lub bezpośrednie sprawdzenie (bezpiecznik dla ramek bez SubtleCrypto)
                 if (hashedInput === COMMANDANT_HASH || cleanInput === "1BialyBrzeg1") {
                     setTempJadlospis(extraContent.jadlospis || '');
                     setIsJadlospisEditing(true);
@@ -243,8 +247,8 @@
                 <div className="min-h-screen bg-red-50 flex flex-col items-center justify-center p-6 text-center">
                     <div className="bg-white p-12 rounded-[3rem] shadow-2xl border-4 border-red-100 max-w-xl w-full">
                         <img src={IMG_LOGO} className="w-20 h-20 mx-auto mb-6 rounded-full" />
-                        <h2 className="text-red-600 font-black text-3xl mb-4 italic uppercase">Błąd Synchronizacji</h2>
-                        <button onClick={() => window.location.reload()} className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black uppercase">Odśwież</button>
+                        <h2 className="text-red-600 font-black text-3xl mb-4 italic uppercase leading-none">Błąd Synchronizacji</h2>
+                        <button onClick={() => window.location.reload()} className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black uppercase tracking-widest mt-6">Odśwież</button>
                     </div>
                 </div>
             );
@@ -252,12 +256,12 @@
             if (!isInit) return (
                 <div className="min-h-screen bg-[#064e3b] flex flex-col items-center justify-center text-white font-black italic">
                     <img src={IMG_LOGO} alt="Logo" className="w-32 h-32 rounded-full mb-8 animate-pulse border-4 border-white/20" />
-                    SYNCHRONIZACJA...
+                    <div className="tracking-widest uppercase text-xs">Synchronizacja...</div>
                 </div>
             );
 
             return (
-                <div className="min-h-screen pb-20 selection:bg-emerald-200">
+                <div className="min-h-screen pb-10 selection:bg-emerald-200">
                     <header className="bg-emerald-950 text-white p-8 md:p-24 relative overflow-hidden bg-cover bg-center" style={{ backgroundImage: `url('${IMG_HEADER}')` }}>
                         <div className="absolute inset-0 bg-emerald-950/85 backdrop-blur-[2px]"></div>
                         <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-10 relative z-10">
@@ -317,7 +321,7 @@
                                     <h2 className="text-2xl font-black mb-10 uppercase italic flex items-center gap-5 text-emerald-400 leading-none">
                                         <i data-lucide="utensils" className="text-emerald-400 w-8 h-8"></i> Kuchnia BB
                                     </h2>
-                                    <div className="italic text-emerald-50 text-3xl whitespace-pre-wrap leading-relaxed font-black">{extraContent.jadlospis || "Menu wkrótce."}</div>
+                                    <div className="italic text-emerald-50 text-base md:text-lg whitespace-pre-wrap leading-relaxed font-black">{extraContent.jadlospis || "Menu wkrótce."}</div>
                                 </div>
                             </div>
                         )}
@@ -327,12 +331,12 @@
                                 <h2 className="text-6xl font-black uppercase mb-12 italic text-slate-900 leading-none">Jadłospis</h2>
                                 {!isJadlospisEditing ? (
                                     <>
-                                        <div className="p-16 bg-orange-50/50 rounded-[4rem] italic text-4xl min-h-[450px] mb-12 flex items-center justify-center border-2 border-orange-100/30 font-black leading-relaxed shadow-inner text-slate-800 whitespace-pre-wrap">
+                                        <div className="p-10 bg-orange-50/50 rounded-[4rem] italic text-base md:text-lg min-h-[150px] mb-12 flex items-center justify-center border-2 border-orange-100/30 font-black leading-relaxed shadow-inner text-slate-800 whitespace-pre-wrap">
                                             {extraContent.jadlospis || "Brak menu..."}
                                         </div>
                                         <div className="bg-slate-50 p-12 rounded-[3.5rem] border border-slate-200">
                                             <div className="text-[10px] font-black uppercase tracking-[0.5em] text-slate-400 mb-8 italic">Weryfikacja Komendanta</div>
-                                            <form onSubmit={checkPassword} className="flex flex-col sm:flex-row gap-4 w-full max-w-sm mx-auto">
+                                            <form onSubmit={checkPassword} className="flex flex-col sm:flex-row gap-4 w-full max-sm mx-auto">
                                                 <input type="password" placeholder="Hasło..." className="flex-1 p-5 bg-white border-2 rounded-2xl outline-none focus:border-emerald-500 font-black text-xl" value={passwordInput} onChange={e => setPasswordInput(e.target.value)} />
                                                 <button type="submit" className="bg-slate-900 text-white px-12 py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest">Weryfikuj</button>
                                             </form>
@@ -340,9 +344,9 @@
                                     </>
                                 ) : (
                                     <div className="space-y-8 animate-in zoom-in-95">
-                                        <textarea className="w-full h-[550px] p-16 border-4 border-emerald-100 rounded-[4rem] outline-none text-4xl italic font-black text-center bg-emerald-50/20 shadow-inner focus:border-emerald-500 leading-relaxed" value={tempJadlospis} onChange={e => setTempJadlospis(e.target.value)} placeholder="Wpisz menu dnia..." />
+                                        <textarea className="w-full h-[550px] p-16 border-4 border-emerald-100 rounded-[4rem] outline-none text-lg italic font-black text-center bg-emerald-50/20 shadow-inner focus:border-emerald-500 leading-relaxed" value={tempJadlospis} onChange={e => setTempJadlospis(e.target.value)} placeholder="Wpisz menu dnia..." />
                                         <div className="flex flex-col gap-4">
-                                            <button onClick={handleSaveJadlospis} className="w-full bg-emerald-600 text-white py-10 rounded-[3.5rem] font-black uppercase text-3xl shadow-2xl italic">Zatwierdź Menu</button>
+                                            <button onClick={handleSaveJadlospis} className="w-full bg-emerald-600 text-white py-10 rounded-[3.5rem] font-black uppercase text-3xl shadow-2xl italic leading-none">Zatwierdź Menu</button>
                                             <button onClick={() => setIsJadlospisEditing(false)} className="font-black uppercase tracking-widest text-slate-300 text-xs">Anuluj</button>
                                         </div>
                                     </div>
@@ -357,7 +361,7 @@
                                         <h2 className="text-6xl font-black uppercase italic text-emerald-950 leading-none">Grafik</h2>
                                         <p className="text-slate-400 font-bold text-[10px] uppercase tracking-[0.5em] mt-4 italic">Zajętość punktów</p>
                                     </div>
-                                    <button onClick={() => setIsBookingModalOpen(true)} className="bg-emerald-600 text-white px-10 py-5 rounded-[2rem] font-black text-xs uppercase flex items-center gap-4 tracking-widest">
+                                    <button onClick={() => setIsBookingModalOpen(true)} className="bg-emerald-600 text-white px-10 py-5 rounded-[2rem] font-black text-xs uppercase flex items-center gap-4 tracking-widest active:scale-95 transition-transform">
                                         <i data-lucide="plus" className="w-5 h-5"></i> Dodaj wpis
                                     </button>
                                 </div>
@@ -374,7 +378,7 @@
                                                 </div>
                                                 <div className="flex items-center gap-10 w-full md:w-auto">
                                                     <div className="font-mono font-black text-4xl bg-white px-10 py-5 rounded-[2.5rem] text-emerald-900 italic leading-none">{res.timeStart}-{res.timeEnd}</div>
-                                                    <button onClick={() => deleteReservation(res.id)} className="p-6 text-slate-200 hover:text-red-500 font-bold text-4xl">✕</button>
+                                                    <button onClick={() => deleteReservation(res.id)} className="p-6 text-slate-300 hover:text-red-500 font-bold text-4xl transition-colors">✕</button>
                                                 </div>
                                             </div>
                                         ))
@@ -390,7 +394,7 @@
                                 <h2 className="text-5xl font-black uppercase mb-12 italic text-slate-900 leading-none">
                                     <i data-lucide="compass" className="text-blue-600 inline mr-4"></i> Wycieczki
                                 </h2>
-                                <textarea className="w-full h-[600px] p-12 bg-blue-50/20 border-2 border-blue-100 rounded-[3rem] outline-none font-mono text-2xl font-bold leading-relaxed focus:border-blue-400" value={extraContent.wycieczki} onChange={e => updateContent('wycieczki', e.target.value)} placeholder="Godzina, Grupa, Miejsce..." />
+                                <textarea className="w-full h-[600px] p-12 bg-blue-50/20 border-2 border-blue-100 rounded-[3rem] outline-none font-mono text-2xl font-bold leading-relaxed focus:border-blue-400 transition-colors" value={extraContent.wycieczki} onChange={e => updateContent('wycieczki', e.target.value)} placeholder="Godzina, Grupa, Miejsce..." />
                             </div>
                         )}
 
@@ -399,7 +403,7 @@
                                 <h2 className="text-5xl font-black uppercase mb-12 italic text-red-600 leading-none">
                                     <i data-lucide="phone" className="text-red-600 inline mr-4"></i> Numery
                                 </h2>
-                                <textarea className="w-full h-[600px] p-12 bg-red-50/20 border-2 border-red-100 rounded-[3rem] outline-none font-black text-2xl text-red-900 leading-relaxed focus:border-red-400" value={extraContent.kontakt} onChange={e => updateContent('kontakt', e.target.value)} placeholder="Komendant, Alarmowe..." />
+                                <textarea className="w-full h-[600px] p-12 bg-red-50/20 border-2 border-red-100 rounded-[3rem] outline-none font-black text-2xl text-red-900 leading-relaxed focus:border-red-400 transition-colors" value={extraContent.kontakt} onChange={e => updateContent('kontakt', e.target.value)} placeholder="Komendant, Alarmowe..." />
                             </div>
                         )}
                     </main>
@@ -409,7 +413,7 @@
                             <div className="bg-white w-full max-w-md rounded-[2.5rem] p-8 shadow-2xl relative overflow-hidden animate-in">
                                 <div className="flex justify-between items-center mb-6">
                                     <h2 className="text-2xl font-black uppercase italic text-emerald-950 leading-none">Zajmij Punkt</h2>
-                                    <button onClick={() => { setIsBookingModalOpen(false); setBookingError(null); }} className="w-10 h-10 bg-slate-100 rounded-full font-black">✕</button>
+                                    <button onClick={() => { setIsBookingModalOpen(false); setBookingError(null); }} className="w-10 h-10 bg-slate-100 rounded-full font-black text-lg">✕</button>
                                 </div>
                                 <form onSubmit={handleAdd} className="space-y-4">
                                     <div className="space-y-1">
@@ -430,22 +434,15 @@
                                         <label className="text-[10px] font-black uppercase text-emerald-900 opacity-40 ml-4 italic">Data</label>
                                         <input name="date" type="date" className="w-full p-4 bg-slate-50 rounded-2xl border-2 border-slate-100 font-bold italic" required defaultValue={getTodayDateStr(currentTime)} />
                                     </div>
-                                    {bookingError && <div className="bg-red-50 border border-red-100 p-3 rounded-xl text-red-600 text-[10px] font-black uppercase text-center italic">{bookingError}</div>}
+                                    {bookingError && <div className="bg-red-50 border border-red-100 p-3 rounded-xl text-red-600 text-[10px] font-black uppercase text-center italic animate-pulse">{bookingError}</div>}
                                     <div className="flex flex-col gap-3 pt-4">
-                                        <button type="submit" className="w-full bg-emerald-600 text-white py-5 rounded-[2rem] font-black uppercase tracking-[0.4em] text-lg italic">Zatwierdź</button>
+                                        <button type="submit" className="w-full bg-emerald-600 text-white py-5 rounded-[2rem] font-black uppercase tracking-[0.4em] text-lg italic leading-none">Zatwierdź</button>
                                         <button type="button" onClick={() => setIsBookingModalOpen(false)} className="w-full font-black uppercase text-slate-300 text-[10px]">Anuluj</button>
                                     </div>
                                 </form>
                             </div>
                         </div>
                     )}
-
-                    <footer className="fixed bottom-10 left-0 right-0 flex justify-center pointer-events-none z-50 px-6">
-                        <div className="bg-emerald-950/95 backdrop-blur-3xl text-white px-14 py-6 rounded-full text-[10px] font-black uppercase tracking-[0.6em] shadow-2xl border border-white/10 pointer-events-auto flex items-center gap-8 italic leading-none">
-                            <img src={IMG_LOGO} className="w-10 h-10 rounded-full border border-white/20" />
-                            <span>Biały Brzeg 2026 • Monitor Systemu Akcji Letniej</span>
-                        </div>
-                    </footer>
                 </div>
             );
         }
@@ -457,9 +454,9 @@
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         @keyframes fade-in { from { opacity: 0; transform: translateY(40px); } to { opacity: 1; transform: translateY(0); } }
-        .animate-in { animation: fade-in 0.9s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        .animate-in { animation: fade-in 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
         * { -webkit-tap-highlight-color: transparent; }
-        body { background-color: #fcfbf7; overflow-x: hidden; }
+        body { background-color: #fcfbf7; overflow-x: hidden; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif; }
         select {
             cursor: pointer;
             background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23064e3b' stroke-width='3'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
@@ -467,6 +464,7 @@
             background-position: right 1rem center;
             background-size: 1.25rem;
             padding-right: 3rem;
+            appearance: none;
         }
     </style>
 </body>
