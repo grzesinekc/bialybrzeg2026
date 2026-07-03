@@ -47,6 +47,7 @@
         
         const IMG_HEADER = "https://www.dropbox.com/scl/fi/h35st6ucsgr0vfaqk599p/IDENTYFIKATOR_BEZ-TEKSTU.png?rlkey=ql6aybqsctxferab69ozyhha9&st=g6ywzqam&dl=1";
         const IMG_LOGO = "https://www.dropbox.com/scl/fi/zr8lckek34w630una7jgc/logo-BB.jpg?rlkey=i605zzig81x7l8ji5yhyyiu5y&st=mrxsxpti&dl=1";
+        const IMG_MAP = "https://www.dropbox.com/scl/fi/69o9otia5gqlj9st1uw71/BB2026.png?rlkey=24lpkefyyrjc3u52pnfy5km6r&raw=1";
 
         const BP_QUOTES = [
             "Zostawcie ten świat choć trochę lepszym, niż go zastaliście.",
@@ -165,7 +166,6 @@
                 const unsubContent = window.fb.onSnapshot(contentDoc, (snap) => {
                     if (snap.exists()) {
                         const data = snap.data();
-                        // Zachowujemy statyczny kontakt, ale synchronizujemy resztę
                         setExtraContent(prev => ({ 
                             ...data, 
                             kontakt: prev.kontakt 
@@ -293,12 +293,13 @@
                         </div>
                     </header>
 
+                    {}
                     <nav className="max-w-6xl mx-auto -mt-10 px-4 sticky top-6 z-40">
                         <div className="bg-white/95 backdrop-blur-md rounded-[2.5rem] shadow-2xl border border-emerald-100 p-2 flex overflow-x-auto no-scrollbar gap-1">
-                            {['home', 'rezerwacje', 'jadlospis', 'wycieczki', 'kontakt'].map(tab => (
+                            {['home', 'rezerwacje', 'jadlospis', 'wycieczki', 'kontakt', 'mapka'].map(tab => (
                                 <button key={tab} onClick={() => setActiveTab(tab)} className={`flex items-center gap-2 px-8 py-5 rounded-[1.8rem] transition-all flex-1 justify-center whitespace-nowrap ${activeTab === tab ? 'bg-emerald-600 text-white shadow-xl scale-[1.02] font-black' : 'text-emerald-900/40 hover:bg-emerald-50 font-bold'}`}>
-                                    <i data-lucide={tab === 'home' ? 'home' : tab === 'rezerwacje' ? 'map-pin' : tab === 'jadlospis' ? 'utensils' : tab === 'wycieczki' ? 'compass' : 'phone'} className="w-4 h-4"></i>
-                                    <span className="text-[10px] uppercase tracking-widest">{tab === 'home' ? 'Start' : tab}</span>
+                                    <i data-lucide={tab === 'home' ? 'home' : tab === 'rezerwacje' ? 'map-pin' : tab === 'jadlospis' ? 'utensils' : tab === 'wycieczki' ? 'compass' : tab === 'kontakt' ? 'phone' : 'map'} className="w-4 h-4"></i>
+                                    <span className="text-[10px] uppercase tracking-widest">{tab === 'home' ? 'Start' : tab === 'mapka' ? 'Mapka' : tab}</span>
                                 </button>
                             ))}
                         </div>
@@ -417,7 +418,42 @@
                                 <div className="p-12 bg-red-50/20 border-2 border-red-100 rounded-[3rem] font-black text-2xl text-red-900 leading-relaxed shadow-inner">
                                     <p className="mb-4">Komendant: hm Agnieszka Ciepielewska 502498709</p>
                                     <p className="mb-4">z-ca komendanta: hm Grzegorz Ciepielewski 502498610</p>
-                                    <p>Kwatermistrz: phm Jacek Kozieł 501294668</p>
+                                    <p>Kwatermistrz: hm Jacek Kozieł 501294668</p>
+                                </div>
+                            </div>
+                        )}
+
+                        {}
+                        {activeTab === 'mapka' && (
+                            <div className="bg-white p-6 md:p-12 rounded-[4.5rem] shadow-xl border border-emerald-100 animate-in text-center relative">
+                                <div className="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4">
+                                    <h2 className="text-4xl md:text-5xl font-black uppercase italic text-emerald-950 tracking-tighter leading-none flex items-center gap-3">
+                                        <i data-lucide="map" className="text-emerald-600 w-10 h-10"></i> Mapa Stanicy
+                                    </h2>
+                                    <button 
+                                        onClick={() => setActiveTab('home')} 
+                                        className="bg-slate-900 text-white px-6 py-3.5 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-black transition-all flex items-center gap-2 shadow-md active:scale-95"
+                                    >
+                                        ✕ Zamknij i wróć
+                                    </button>
+                                </div>
+                                <div className="relative overflow-hidden rounded-[3rem] border-4 border-emerald-50 bg-slate-100/50 flex justify-center items-center p-4 shadow-inner min-h-[400px]">
+                                    <img 
+                                        src={IMG_MAP} 
+                                        alt="Mapa Stanicy Biały Brzeg" 
+                                        className="max-w-full max-h-[70vh] object-contain rounded-[2rem] shadow-lg transition-transform hover:scale-[1.01] duration-300"
+                                        onError={(e) => {
+                                            e.target.src = "https://placehold.co/800x600/064e3b/ffffff?text=Nie+udalo+sie+zaladowac+mapy";
+                                        }}
+                                    />
+                                </div>
+                                <div className="mt-8 flex justify-center">
+                                    <button 
+                                        onClick={() => setActiveTab('home')} 
+                                        className="bg-emerald-600 text-white px-12 py-5 rounded-[2.5rem] font-black text-base uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-xl hover:scale-[1.02] active:scale-95 italic"
+                                    >
+                                        Powrót do programu
+                                    </button>
                                 </div>
                             </div>
                         )}
