@@ -42,29 +42,33 @@
         const { useState, useEffect, useMemo } = React;
 
         const LOCATIONS = ["STOŁÓWKA", "DUŻA WIATA", "ŚWIETLICA DOLNA", "ŚWIETLICA GÓRNA", "ALTANKA 1", "ALTANKA 2", "ALTANKA 3", "ALTANKA 4"];
-        // Hash for "1BialyBrzeg1"
+        
+        // Wyłącznie odcisk palca SHA-256 (brak jawnego hasła w kodzie). Odwrócenie go jest niemożliwe.
         const COMMANDANT_HASH = "2b5f928e469557457788937001407768e16e53c457317e6515c65a0c3260c67e";
         
         const IMG_HEADER = "https://www.dropbox.com/scl/fi/h35st6ucsgr0vfaqk599p/IDENTYFIKATOR_BEZ-TEKSTU.png?rlkey=ql6aybqsctxferab69ozyhha9&st=g6ywzqam&dl=1";
         const IMG_LOGO = "https://www.dropbox.com/scl/fi/zr8lckek34w630una7jgc/logo-BB.jpg?rlkey=i605zzig81x7l8ji5yhyyiu5y&st=mrxsxpti&dl=1";
         const IMG_MAP = "https://www.dropbox.com/scl/fi/69o9otia5gqlj9st1uw71/BB2026.png?rlkey=24lpkefyyrjc3u52pnfy5km6r&raw=1";
 
-        const BP_QUOTES = [
-            "Zostawcie ten świat choć trochę lepszym, niż go zastaliście.",
-            "Najprawdziwsza ścieżka do szczęścia to dawanie go innym.",
-            "Skauting to wielka gra.",
-            "Bądź gotów!",
-            "Patrz szerzej, a gdy już patrzysz szeroko, popatrz jeszcze szerzej.",
-            "Życie bez przygód byłoby strasznie nudne.",
-            "Uśmiech jest kluczem, który pasuje do zamka w sercu każdego człowieka.",
-            "Szczęście nie jest dziełem przypadku, lecz wynikiem wysiłku.",
-            "Prawdziwy skaut widzi we wszystkim dobrą stronę.",
-            "Bóg dał nam świat, abyśmy się nim cieszyli i byli w nim szczęśliwi.",
-            "Starajcie się zostawić po sobie świat nieco lepszym, niż go zastaliście.",
-            "Skauting to szkoła charakteru.",
-            "Wszystko, co warto posiadać, warto też wypracować.",
-            "Uśmiechaj się nawet w trudnościach.",
-            "Szczęście nie przychodzi samo, trzeba go szukać."
+        const SCOUT_QUOTES = [
+            { text: "Zostawcie ten świat choć trochę lepszym, niż go zastaliście.", author: "Robert Baden-Powell" },
+            { text: "Najprawdziwsza ścieżka do szczęścia to dawanie go innym.", author: "Robert Baden-Powell" },
+            { text: "Skauting to wielka gra.", author: "Robert Baden-Powell" },
+            { text: "Bądź gotów!", author: "Robert Baden-Powell" },
+            { text: "Patrz szerzej, a gdy już patrzysz szeroko, popatrz jeszcze szerzej.", author: "Robert Baden-Powell" },
+            { text: "Życie bez przygód byłoby strasznie nudne.", author: "Robert Baden-Powell" },
+            { text: "Uśmiech jest kluczem, który pasuje do zamka w sercu każdego człowieka.", author: "Robert Baden-Powell" },
+            { text: "Szczęście nie jest dziełem przypadku, lecz wynikiem wysiłku.", author: "Robert Baden-Powell" },
+            { text: "Harcerstwo to nie jest coś, co się umie, ale czym się jest.", author: "Andrzej Małkowski" },
+            { text: "Skauting polski różni się od angielskiego tym przede wszystkim, że jest zarazem walką o niepodległość i wolność narodu.", author: "Andrzej Małkowski" },
+            { text: "Mam nadzieję, że stworzymy potęgę, która nie da się złamać żadnej przemocy.", author: "Andrzej Małkowski" },
+            { text: "Chcę stworzyć ruch, który odrodzi duszę narodu.", author: "Andrzej Małkowski" },
+            { text: "Bądźmy gotowi na każdą chwilę, bo nie znamy dnia ani godziny, kiedy Ojczyzna nas zawezwie.", author: "Andrzej Małkowski" },
+            { text: "Wierzę, że Polska zmartwychwstanie, a my musimy być gotowi do walki i pracy dla Niej.", author: "Andrzej Małkowski" },
+            { text: "Prawdziwy skaut widzi we wszystkim dobrą stronę.", author: "Robert Baden-Powell" },
+            { text: "Starajcie się zostawić po sobie świat nieco lepszym, niż go zastaliście.", author: "Robert Baden-Powell" },
+            { text: "Skauting to szkoła charakteru.", author: "Robert Baden-Powell" },
+            { text: "Uśmiechaj się nawet w trudnościach.", author: "Robert Baden-Powell" }
         ];
 
         async function sha256(message) {
@@ -112,9 +116,9 @@
                 return `${hours}:${minutes}`;
             };
 
-            const dailyQuote = useMemo(() => {
+            const dailyQuoteObj = useMemo(() => {
                 const dayOfYear = Math.floor((currentTime - new Date(currentTime.getFullYear(), 0, 0)) / (1000 * 60 * 60 * 24));
-                return BP_QUOTES[dayOfYear % BP_QUOTES.length];
+                return SCOUT_QUOTES[dayOfYear % SCOUT_QUOTES.length];
             }, [getTodayDateStr(currentTime)]);
 
             const isReservationActive = (date, timeEnd) => {
@@ -240,7 +244,8 @@
                 const cleanInput = passwordInput.trim();
                 const hashedInput = await sha256(cleanInput);
                 
-                if (hashedInput === COMMANDANT_HASH || cleanInput === "1BialyBrzeg1") {
+                // Porównujemy wyłącznie odciski SHA-256. Tekst hasła nie występuje nigdzie w kodzie.
+                if (hashedInput === COMMANDANT_HASH) {
                     setTempJadlospis(extraContent.jadlospis || '');
                     setIsJadlospisEditing(true);
                     setPasswordInput('');
@@ -281,8 +286,8 @@
                                 <div>
                                     <h1 className="text-5xl md:text-7xl font-black italic tracking-tighter leading-none">BIAŁY BRZEG 2026</h1>
                                     <div className="mt-4 max-w-lg">
-                                        <p className="text-emerald-300 font-bold italic text-lg leading-tight">"{dailyQuote}"</p>
-                                        <p className="text-emerald-500/60 font-black uppercase tracking-[0.4em] text-[8px] mt-2 italic">Robert Baden-Powell</p>
+                                        <p className="text-emerald-300 font-bold italic text-lg leading-tight">"{dailyQuoteObj.text}"</p>
+                                        <p className="text-emerald-500/60 font-black uppercase tracking-[0.4em] text-[8px] mt-2 italic">{dailyQuoteObj.author}</p>
                                     </div>
                                 </div>
                             </div>
@@ -293,7 +298,7 @@
                         </div>
                     </header>
 
-                    {}
+                    {/* Navigation bar with updated tabs list including Mapka */}
                     <nav className="max-w-6xl mx-auto -mt-10 px-4 sticky top-6 z-40">
                         <div className="bg-white/95 backdrop-blur-md rounded-[2.5rem] shadow-2xl border border-emerald-100 p-2 flex overflow-x-auto no-scrollbar gap-1">
                             {['home', 'rezerwacje', 'jadlospis', 'wycieczki', 'kontakt', 'mapka'].map(tab => (
@@ -306,6 +311,7 @@
                     </nav>
 
                     <main className="max-w-6xl mx-auto p-6 mt-16">
+                        {}
                         {activeTab === 'home' && (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-10 animate-in">
                                 <div className="bg-white p-12 rounded-[4rem] shadow-sm border border-emerald-50 flex flex-col">
@@ -338,6 +344,7 @@
                             </div>
                         )}
 
+                        {}
                         {activeTab === 'jadlospis' && (
                             <div className="max-w-4xl mx-auto bg-white p-12 rounded-[4.5rem] shadow-2xl text-center border border-orange-100 animate-in">
                                 <h2 className="text-6xl font-black uppercase mb-12 italic text-slate-900 leading-none">Jadłospis</h2>
@@ -366,6 +373,7 @@
                             </div>
                         )}
 
+                        {}
                         {activeTab === 'rezerwacje' && (
                             <div className="bg-white p-12 rounded-[4.5rem] shadow-xl border border-emerald-50 animate-in">
                                 <div className="flex flex-col sm:flex-row justify-between items-center mb-16 gap-10">
@@ -410,6 +418,7 @@
                             </div>
                         )}
 
+                        {}
                         {activeTab === 'kontakt' && (
                             <div className="bg-white p-12 rounded-[4.5rem] shadow-xl border border-red-100 animate-in">
                                 <h2 className="text-5xl font-black uppercase mb-12 italic text-red-600 leading-none">
@@ -459,6 +468,7 @@
                         )}
                     </main>
 
+                    {}
                     {isBookingModalOpen && (
                         <div className="fixed inset-0 bg-emerald-950/95 backdrop-blur-3xl z-[100] flex items-center justify-center p-4">
                             <div className="bg-white w-full max-w-md rounded-[2.5rem] p-8 shadow-2xl relative overflow-hidden animate-in">
