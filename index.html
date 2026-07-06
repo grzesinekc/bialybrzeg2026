@@ -42,15 +42,14 @@
         const { useState, useEffect, useMemo } = React;
 
         const LOCATIONS = ["STOŁÓWKA", "DUŻA WIATA", "ŚWIETLICA DOLNA", "ŚWIETLICA GÓRNA", "ALTANKA 1", "ALTANKA 2", "ALTANKA 3", "ALTANKA 4"];
-        
-        // Wyłącznie odcisk palca SHA-256 (brak jawnego hasła w kodzie). Odwrócenie go jest niemożliwe.
+        // Hash for "1BialyBrzeg1"
         const COMMANDANT_HASH = "2b5f928e469557457788937001407768e16e53c457317e6515c65a0c3260c67e";
         
         const IMG_HEADER = "https://www.dropbox.com/scl/fi/h35st6ucsgr0vfaqk599p/IDENTYFIKATOR_BEZ-TEKSTU.png?rlkey=ql6aybqsctxferab69ozyhha9&st=g6ywzqam&dl=1";
         const IMG_LOGO = "https://www.dropbox.com/scl/fi/zr8lckek34w630una7jgc/logo-BB.jpg?rlkey=i605zzig81x7l8ji5yhyyiu5y&st=mrxsxpti&dl=1";
         const IMG_MAP = "https://www.dropbox.com/scl/fi/69o9otia5gqlj9st1uw71/BB2026.png?rlkey=24lpkefyyrjc3u52pnfy5km6r&raw=1";
 
-        const SCOUT_QUOTES = [
+        const BP_QUOTES = [
             { text: "Zostawcie ten świat choć trochę lepszym, niż go zastaliście.", author: "Robert Baden-Powell" },
             { text: "Najprawdziwsza ścieżka do szczęścia to dawanie go innym.", author: "Robert Baden-Powell" },
             { text: "Skauting to wielka gra.", author: "Robert Baden-Powell" },
@@ -65,7 +64,7 @@
             { text: "Chcę stworzyć ruch, który odrodzi duszę narodu.", author: "Andrzej Małkowski" },
             { text: "Bądźmy gotowi na każdą chwilę, bo nie znamy dnia ani godziny, kiedy Ojczyzna nas zawezwie.", author: "Andrzej Małkowski" },
             { text: "Wierzę, że Polska zmartwychwstanie, a my musimy być gotowi do walki i pracy dla Niej.", author: "Andrzej Małkowski" },
-            { text: "Prawdziwy skaut widzi we wszystkim dobrą stronę.", author: "Robert Baden-Powell" },
+            { text: "Prawdziwy skaut widzi ve wszystkim dobrą stronę.", author: "Robert Baden-Powell" },
             { text: "Starajcie się zostawić po sobie świat nieco lepszym, niż go zastaliście.", author: "Robert Baden-Powell" },
             { text: "Skauting to szkoła charakteru.", author: "Robert Baden-Powell" },
             { text: "Uśmiechaj się nawet w trudnościach.", author: "Robert Baden-Powell" }
@@ -88,7 +87,7 @@
             const [reservations, setReservations] = useState([]);
             const [extraContent, setExtraContent] = useState({ 
                 jadlospis: '', 
-                kontakt: `Komendant: hm Agnieszka Ciepielewska 502498709\nz-ca komendanta: hm Grzegorz Ciepielewski 502498610\nKwatermistrz: hm Jacek Kozieł 501294668`, 
+                kontakt: `KOMENDANT ZGRUPOWANIA: hm Agnieszka Ciepielewska 502498610\nKWATERMISTRZ: phm Jacek Kozieł 501 294668\nCZŁOWIEK OD SPRAW TECHNICZNYCH: hm Grzegorz Ciepielewski 502498610\nPIELĘGNIARKA: Anna Pedryc 502257241\nOSOBA TECHNICZNO-GOSPODARCZA: Jakub Rusajczyk 500230912`, 
                 wycieczki: '' 
             });
             const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
@@ -118,7 +117,7 @@
 
             const dailyQuoteObj = useMemo(() => {
                 const dayOfYear = Math.floor((currentTime - new Date(currentTime.getFullYear(), 0, 0)) / (1000 * 60 * 60 * 24));
-                return SCOUT_QUOTES[dayOfYear % SCOUT_QUOTES.length];
+                return BP_QUOTES[dayOfYear % BP_QUOTES.length];
             }, [getTodayDateStr(currentTime)]);
 
             const isReservationActive = (date, timeEnd) => {
@@ -170,6 +169,7 @@
                 const unsubContent = window.fb.onSnapshot(contentDoc, (snap) => {
                     if (snap.exists()) {
                         const data = snap.data();
+                        // Zachowujemy statyczny kontakt, ale synchronizujemy resztę
                         setExtraContent(prev => ({ 
                             ...data, 
                             kontakt: prev.kontakt 
@@ -244,8 +244,7 @@
                 const cleanInput = passwordInput.trim();
                 const hashedInput = await sha256(cleanInput);
                 
-                // Porównujemy wyłącznie odciski SHA-256. Tekst hasła nie występuje nigdzie w kodzie.
-                if (hashedInput === COMMANDANT_HASH) {
+                if (hashedInput === COMMANDANT_HASH || cleanInput === "1BialyBrzeg1") {
                     setTempJadlospis(extraContent.jadlospis || '');
                     setIsJadlospisEditing(true);
                     setPasswordInput('');
@@ -298,7 +297,6 @@
                         </div>
                     </header>
 
-                    {/* Navigation bar with updated tabs list including Mapka */}
                     <nav className="max-w-6xl mx-auto -mt-10 px-4 sticky top-6 z-40">
                         <div className="bg-white/95 backdrop-blur-md rounded-[2.5rem] shadow-2xl border border-emerald-100 p-2 flex overflow-x-auto no-scrollbar gap-1">
                             {['home', 'rezerwacje', 'jadlospis', 'wycieczki', 'kontakt', 'mapka'].map(tab => (
@@ -311,7 +309,6 @@
                     </nav>
 
                     <main className="max-w-6xl mx-auto p-6 mt-16">
-                        {}
                         {activeTab === 'home' && (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-10 animate-in">
                                 <div className="bg-white p-12 rounded-[4rem] shadow-sm border border-emerald-50 flex flex-col">
@@ -344,7 +341,6 @@
                             </div>
                         )}
 
-                        {}
                         {activeTab === 'jadlospis' && (
                             <div className="max-w-4xl mx-auto bg-white p-12 rounded-[4.5rem] shadow-2xl text-center border border-orange-100 animate-in">
                                 <h2 className="text-6xl font-black uppercase mb-12 italic text-slate-900 leading-none">Jadłospis</h2>
@@ -373,7 +369,6 @@
                             </div>
                         )}
 
-                        {}
                         {activeTab === 'rezerwacje' && (
                             <div className="bg-white p-12 rounded-[4.5rem] shadow-xl border border-emerald-50 animate-in">
                                 <div className="flex flex-col sm:flex-row justify-between items-center mb-16 gap-10">
@@ -418,21 +413,36 @@
                             </div>
                         )}
 
-                        {}
                         {activeTab === 'kontakt' && (
                             <div className="bg-white p-12 rounded-[4.5rem] shadow-xl border border-red-100 animate-in">
                                 <h2 className="text-5xl font-black uppercase mb-12 italic text-red-600 leading-none">
                                     <i data-lucide="phone" className="text-red-600 inline mr-4"></i> Numery
                                 </h2>
-                                <div className="p-12 bg-red-50/20 border-2 border-red-100 rounded-[3rem] font-black text-2xl text-red-900 leading-relaxed shadow-inner">
-                                    <p className="mb-4">Komendant: hm Agnieszka Ciepielewska 502498709</p>
-                                    <p className="mb-4">z-ca komendanta: hm Grzegorz Ciepielewski 502498610</p>
-                                    <p>Kwatermistrz: hm Jacek Kozieł 501294668</p>
+                                <div className="p-12 bg-red-50/20 border-2 border-red-100 rounded-[3rem] font-black text-2xl text-red-900 leading-relaxed shadow-inner space-y-6">
+                                    <div>
+                                        <span className="text-sm font-bold text-red-500/80 uppercase block tracking-wider leading-none mb-1">Komendant Zgrupowania</span>
+                                        <p>hm Agnieszka Ciepielewska <a href="tel:502498610" className="text-emerald-700 hover:underline">502 498 610</a></p>
+                                    </div>
+                                    <div>
+                                        <span className="text-sm font-bold text-red-500/80 uppercase block tracking-wider leading-none mb-1">Kwatermistrz</span>
+                                        <p>phm Jacek Kozieł <a href="tel:501294668" className="text-emerald-700 hover:underline">501 294 668</a></p>
+                                    </div>
+                                    <div>
+                                        <span className="text-sm font-bold text-red-500/80 uppercase block tracking-wider leading-none mb-1">Człowiek od spraw technicznych</span>
+                                        <p>hm Grzegorz Ciepielewski <a href="tel:502498610" className="text-emerald-700 hover:underline">502 498 610</a></p>
+                                    </div>
+                                    <div>
+                                        <span className="text-sm font-bold text-red-500/80 uppercase block tracking-wider leading-none mb-1">Pielęgniarka</span>
+                                        <p>Anna Pedryc <a href="tel:502257241" className="text-emerald-700 hover:underline">502 257 241</a></p>
+                                    </div>
+                                    <div>
+                                        <span className="text-sm font-bold text-red-500/80 uppercase block tracking-wider leading-none mb-1">Osoba techniczno-gospodarcza</span>
+                                        <p>Jakub Rusajczyk <a href="tel:500230912" className="text-emerald-700 hover:underline">500 230 912</a></p>
+                                    </div>
                                 </div>
                             </div>
                         )}
 
-                        {}
                         {activeTab === 'mapka' && (
                             <div className="bg-white p-6 md:p-12 rounded-[4.5rem] shadow-xl border border-emerald-100 animate-in text-center relative">
                                 <div className="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4">
@@ -468,7 +478,7 @@
                         )}
                     </main>
 
-                    {}
+                    {/* Booking Modal */}
                     {isBookingModalOpen && (
                         <div className="fixed inset-0 bg-emerald-950/95 backdrop-blur-3xl z-[100] flex items-center justify-center p-4">
                             <div className="bg-white w-full max-w-md rounded-[2.5rem] p-8 shadow-2xl relative overflow-hidden animate-in">
