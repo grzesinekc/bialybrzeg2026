@@ -11,6 +11,9 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     
+    <!-- Silnik SheetJS do parsowania Excela w locie -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    
     <!-- Moduły Firebase -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
@@ -39,7 +42,7 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useMemo } = React;
+        const { useState, useEffect, useMemo, useRef } = React;
 
         const LOCATIONS = ["STOŁÓWKA", "DUŻA WIATA", "ŚWIETLICA DOLNA", "ŚWIETLICA GÓRNA", "ALTANKA 1", "ALTANKA 2", "ALTANKA 3", "ALTANKA 4"];
         // Hash for "1BialyBrzeg1"
@@ -49,25 +52,19 @@
         const IMG_LOGO = "https://www.dropbox.com/scl/fi/zr8lckek34w630una7jgc/logo-BB.jpg?rlkey=i605zzig81x7l8ji5yhyyiu5y&st=mrxsxpti&dl=1";
         const IMG_MAP = "https://www.dropbox.com/scl/fi/69o9otia5gqlj9st1uw71/BB2026.png?rlkey=24lpkefyyrjc3u52pnfy5km6r&raw=1";
 
+        const EXCEL_URL = "https://www.dropbox.com/scl/fi/pgs03zqspj2s8xz4ybife/Profesjonalny_arkusz_osobodni_oboz_harcerski_v3.xlsx?rlkey=jtfrfokklz7g3ilkhqvdd5gmj";
+
         const BP_QUOTES = [
             { text: "Zostawcie ten świat choć trochę lepszym, niż go zastaliście.", author: "Robert Baden-Powell" },
             { text: "Najprawdziwsza ścieżka do szczęścia to dawanie go innym.", author: "Robert Baden-Powell" },
             { text: "Skauting to wielka gra.", author: "Robert Baden-Powell" },
             { text: "Bądź gotów!", author: "Robert Baden-Powell" },
             { text: "Patrz szerzej, a gdy już patrzysz szeroko, popatrz jeszcze szerzej.", author: "Robert Baden-Powell" },
-            { text: "Życie bez przygód byłoby strasznie nudne.", author: "Robert Baden-Powell" },
-            { text: "Uśmiech jest kluczem, który pasuje do zamka w sercu każdego człowieka.", author: "Robert Baden-Powell" },
-            { text: "Szczęście nie jest dziełem przypadku, lecz wynikiem wysiłku.", author: "Robert Baden-Powell" },
             { text: "Harcerstwo to nie jest coś, co się umie, ale czym się jest.", author: "Andrzej Małkowski" },
-            { text: "Skauting polski różni się od angielskiego tym przede wszystkim, że jest zarazem walką o niepodległość i wolność narodu.", author: "Andrzej Małkowski" },
-            { text: "Mam nadzieję, że stworzymy potęgę, która nie da się złamać żadnej przemocy.", author: "Andrzej Małkowski" },
-            { text: "Chcę stworzyć ruch, który odrodzi duszę narodu.", author: "Andrzej Małkowski" },
-            { text: "Bądźmy gotowi na każdą chwilę, bo nie znamy dnia ani godziny, kiedy Ojczyzna nas zawezwie.", author: "Andrzej Małkowski" },
-            { text: "Wierzę, że Polska zmartwychwstanie, a my musimy być gotowi do walki i pracy dla Niej.", author: "Andrzej Małkowski" },
-            { text: "Prawdziwy skaut widzi ve wszystkim dobrą stronę.", author: "Robert Baden-Powell" },
-            { text: "Starajcie się zostawić po sobie świat nieco lepszym, niż go zastaliście.", author: "Robert Baden-Powell" },
-            { text: "Skauting to szkoła charakteru.", author: "Robert Baden-Powell" },
-            { text: "Uśmiechaj się nawet w trudnościach.", author: "Robert Baden-Powell" }
+            { text: "Wszystko co polskie – ukochać, wszystko co prawe i szlachetne – w czyn zamieniać.", author: "Andrzej Małkowski" },
+            { text: "Mocą i bogactwem narodu są wolni i silni ludzie o niezłomnych charakterach.", author: "Andrzej Małkowski" },
+            { text: "Skauting to nie tylko zabawa, to czynna służba drugiemu człowiekowi.", author: "Andrzej Małkowski" },
+            { text: "Każdy dzień bez dobrego uczynku jest dniem bezpowrotnie straconym.", author: "Andrzej Małkowski" }
         ];
 
         async function sha256(message) {
@@ -81,13 +78,52 @@
             }
         }
 
+        // Bezpieczne i precyzyjne formatowanie dat z komórek Excela
+        const formatCellValue = (cell) => {
+            if (cell === null || cell === undefined) return '';
+            
+            // Obsługa seryjnego zapisu daty w Excelu (np. 46200 -> YYYY-MM-DD)
+            if (typeof cell === 'number' && cell > 40000 && cell < 50000) {
+                try {
+                    const jsDate = new Date((cell - 25569) * 86400 * 1000);
+                    if (!isNaN(jsDate.getTime())) {
+                        const y = jsDate.getUTCFullYear();
+                        const m = String(jsDate.getUTCMonth() + 1).padStart(2, '0');
+                        const d = String(jsDate.getUTCDate()).padStart(2, '0');
+                        return `${y}-${m}-${d}`;
+                    }
+                } catch (e) {}
+            }
+            
+            // Obsługa obiektów daty wygenerowanych przez parser SheetJS
+            if (cell instanceof Date) {
+                if (!isNaN(cell.getTime())) {
+                    const y = cell.getFullYear();
+                    const m = String(cell.getMonth() + 1).padStart(2, '0');
+                    const d = String(cell.getDate()).padStart(2, '0');
+                    return `${y}-${m}-${d}`;
+                }
+            }
+            return String(cell);
+        };
+
+        // Inteligentne wyszukiwanie kolumny z wykluczeniem nakładających się słów
+        const findColumnIdx = (header, positiveKeywords, negativeKeywords = []) => {
+            return header.findIndex(h => {
+                const val = String(h || '').toLowerCase();
+                const matchesPositive = positiveKeywords.some(kw => val.includes(kw));
+                const matchesNegative = negativeKeywords.some(kw => val.includes(kw));
+                return matchesPositive && !matchesNegative;
+            });
+        };
+
         function App() {
             const [activeTab, setActiveTab] = useState('home');
             const [currentTime, setCurrentTime] = useState(new Date());
             const [reservations, setReservations] = useState([]);
             const [extraContent, setExtraContent] = useState({ 
                 jadlospis: '', 
-                kontakt: `KOMENDANT ZGRUPOWANIA: hm Agnieszka Ciepielewska 502498610\nKWATERMISTRZ: phm Jacek Kozieł 501 294668\nCZŁOWIEK OD SPRAW TECHNICZNYCH: hm Grzegorz Ciepielewski 502498610\nPIELĘGNIARKA: Anna Pedryc 502257241\nOSOBA TECHNICZNO-GOSPODARCZA: Jakub Rusajczyk 500230912`, 
+                kontakt: `Komendant: hm Agnieszka Ciepielewska 502498709\nz-ca komendanta: hm Grzegorz Ciepielewski 502498610\nKwatermistrz: hm Jacek Kozieł 501294668`, 
                 wycieczki: '' 
             });
             const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
@@ -99,6 +135,14 @@
             const [user, setUser] = useState(null);
             const [error, setError] = useState(null);
             const [isInit, setIsInit] = useState(false);
+
+            // Stany dla modułu Excela (Osobodni)
+            const [excelData, setExcelData] = useState(null); 
+            const [selectedSheet, setSelectedSheet] = useState('');
+            const [excelLoading, setExcelLoading] = useState(true);
+            const [excelError, setExcelError] = useState(null);
+            const [excelSearch, setExcelSearch] = useState('');
+            const fileInputRef = useRef(null);
 
             const appId = typeof __app_id !== 'undefined' ? __app_id : 'stanica-bialy-brzeg';
 
@@ -115,7 +159,7 @@
                 return `${hours}:${minutes}`;
             };
 
-            const dailyQuoteObj = useMemo(() => {
+            const dailyQuote = useMemo(() => {
                 const dayOfYear = Math.floor((currentTime - new Date(currentTime.getFullYear(), 0, 0)) / (1000 * 60 * 60 * 24));
                 return BP_QUOTES[dayOfYear % BP_QUOTES.length];
             }, [getTodayDateStr(currentTime)]);
@@ -131,6 +175,81 @@
                 if (rDate === todayStr && rTimeEnd > nowTimeStr) return true;
                 return false;
             };
+
+            const convertDropboxUrl = (url) => {
+                if (!url) return '';
+                let newUrl = url;
+                newUrl = newUrl.replace('www.dropbox.com', 'dl.dropboxusercontent.com');
+                const urlObj = new URL(newUrl);
+                urlObj.searchParams.set('raw', '1');
+                urlObj.searchParams.delete('dl');
+                urlObj.searchParams.delete('st');
+                return urlObj.toString();
+            };
+
+            const parseExcelBuffer = (buffer) => {
+                try {
+                    const data = new Uint8Array(buffer);
+                    // cellDates: true wymusza na parserze dekodowanie dat seryjnych do formatu JS Date
+                    const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+                    const sheetsData = {};
+                    
+                    workbook.SheetNames.forEach(name => {
+                        const worksheet = workbook.Sheets[name];
+                        const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
+                        sheetsData[name] = rows.filter(row => row.some(cell => cell !== '')); 
+                    });
+                    
+                    setExcelData({
+                        sheetNames: workbook.SheetNames,
+                        sheets: sheetsData
+                    });
+                    setSelectedSheet(workbook.SheetNames[0]);
+                    setExcelLoading(false);
+                } catch (err) {
+                    console.error("Błąd parsowania:", err);
+                    setExcelError("Wystąpił błąd podczas analizy struktury pliku Excel.");
+                    setExcelLoading(false);
+                }
+            };
+
+            const loadExcelFromDropbox = async () => {
+                setExcelLoading(true);
+                setExcelError(null);
+                try {
+                    const directUrl = convertDropboxUrl(EXCEL_URL);
+                    const response = await fetch(directUrl);
+                    if (!response.ok) throw new Error("Odpowiedź sieciowa nie była prawidłowa.");
+                    const arrayBuffer = await response.arrayBuffer();
+                    parseExcelBuffer(arrayBuffer);
+                } catch (err) {
+                    console.error("Błąd ładowania z Dropbox:", err);
+                    setExcelError("Nie udało się automatycznie połączyć z Dropbox (najprawdopodobniej z powodu reguł zabezpieczeń CORS w Twojej przeglądarce). Możesz pobrać plik oryginalny i załadować go ręcznie przyciskiem poniżej!");
+                    setExcelLoading(false);
+                }
+            };
+
+            const handleFileUpload = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                setExcelLoading(true);
+                setExcelError(null);
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    parseExcelBuffer(event.target.result);
+                };
+                reader.onerror = () => {
+                    setExcelError("Wystąpił błąd podczas odczytywania przesłanego pliku.");
+                    setExcelLoading(false);
+                };
+                reader.readAsArrayBuffer(file);
+            };
+
+            useEffect(() => {
+                if (activeTab === 'osobodni') {
+                    loadExcelFromDropbox();
+                }
+            }, [activeTab]);
 
             useEffect(() => {
                 const startApp = async () => {
@@ -169,7 +288,6 @@
                 const unsubContent = window.fb.onSnapshot(contentDoc, (snap) => {
                     if (snap.exists()) {
                         const data = snap.data();
-                        // Zachowujemy statyczny kontakt, ale synchronizujemy resztę
                         setExtraContent(prev => ({ 
                             ...data, 
                             kontakt: prev.kontakt 
@@ -186,7 +304,7 @@
 
             useEffect(() => {
                 if (window.lucide) window.lucide.createIcons();
-            }, [activeTab, isInit, isBookingModalOpen]);
+            }, [activeTab, isInit, isBookingModalOpen, excelLoading, excelError]);
 
             const handleAdd = async (e) => {
                 e.preventDefault();
@@ -258,6 +376,93 @@
                 setIsJadlospisEditing(false);
             };
 
+            const currentSheetGrid = useMemo(() => {
+                if (!excelData || !selectedSheet) return [];
+                return excelData.sheets[selectedSheet] || [];
+            }, [excelData, selectedSheet]);
+
+            // Dynamiczne poszukiwanie właściwego wiersza nagłówkowego (omija wstępy, loga, puste scalone komórki)
+            const headerRowDetection = useMemo(() => {
+                if (currentSheetGrid.length === 0) {
+                    return { header: [], body: [] };
+                }
+
+                // Skanujemy pierwsze 15 wierszy pod kątem typowych słów kluczowych tabel osobodni
+                const keyTerms = [
+                    "lp", "data", "termin", "drużyna", "obóz", "nazwisko", "imię", "osoba", "osoby",
+                    "uczestnic", "kadra", "razem", "suma", "łącznie", "osobodni", "osobo-dni", "pobyt"
+                ];
+
+                let bestRowIdx = 0;
+                let maxMatches = -1;
+
+                const scanRange = Math.min(15, currentSheetGrid.length);
+                for (let r = 0; r < scanRange; r++) {
+                    const row = currentSheetGrid[r] || [];
+                    let matches = 0;
+                    row.forEach(cell => {
+                        const cellVal = String(cell || '').toLowerCase();
+                        if (keyTerms.some(term => cellVal.includes(term))) {
+                            matches++;
+                        }
+                    });
+                    if (matches > maxMatches) {
+                        maxMatches = matches;
+                        bestRowIdx = r;
+                    }
+                }
+
+                // Wiersz z największą ilością dopasowań uznajemy za nagłówek
+                const header = currentSheetGrid[bestRowIdx] || [];
+                // Pozostałe wiersze poniżej nagłówka to ciało tabeli
+                const body = currentSheetGrid.slice(bestRowIdx + 1).filter(row => {
+                    return row.some(cell => cell !== '') && row !== header;
+                });
+
+                return { header, body };
+            }, [currentSheetGrid]);
+
+            const sheetHeaderRow = useMemo(() => headerRowDetection.header, [headerRowDetection]);
+
+            const sheetBodyRows = useMemo(() => {
+                const body = headerRowDetection.body;
+                if (!excelSearch) return body;
+                return body.filter(row => 
+                    row.some(cell => String(cell).toLowerCase().includes(excelSearch.toLowerCase()))
+                );
+            }, [headerRowDetection, excelSearch]);
+
+            // Dynamiczne wyliczanie statystyk turnusów bez ryzyka nakładania się słów kluczowych
+            const computedExcelTotals = useMemo(() => {
+                if (sheetHeaderRow.length === 0 || sheetBodyRows.length === 0) {
+                    return { uczestnicy: 0, kadra: 0, razem: 0, osobodni: 0 };
+                }
+
+                // Precyzyjne przyporządkowanie kolumn przy pomocy definicji pozytywnych i negatywnych słów kluczowych
+                const uIdx = findColumnIdx(sheetHeaderRow, ["uczestnic", "dzieci", "harcerz", "pionier"], ["osobodni", "kadra", "kadr"]);
+                const kIdx = findColumnIdx(sheetHeaderRow, ["kadra", "kadr", "opiekun", "wychowaw"], ["osobodni", "uczestni"]);
+                const rIdx = findColumnIdx(sheetHeaderRow, ["razem", "suma", "łącznie", "stan", "ilość osób", "liczba osób"], ["osobodni", "uczestni", "kadra"]);
+                const oIdx = findColumnIdx(sheetHeaderRow, ["osobodni", "osobo-dni", "osobo dni"], []);
+
+                const sumCol = (idx) => {
+                    if (idx === -1) return 0;
+                    return sheetBodyRows.reduce((sum, row) => {
+                        const cellVal = row[idx];
+                        if (cellVal === undefined || cellVal === null) return sum;
+                        if (cellVal instanceof Date) return sum; // Daty pomijamy w kalkulacji sum liczbowych
+                        const num = parseFloat(String(cellVal).replace(/\s/g, '').replace(',', '.'));
+                        return isNaN(num) ? sum : sum + num;
+                    }, 0);
+                };
+
+                return {
+                    uczestnicy: sumCol(uIdx),
+                    kadra: sumCol(kIdx),
+                    razem: sumCol(rIdx),
+                    osobodni: sumCol(oIdx)
+                };
+            }, [sheetHeaderRow, sheetBodyRows]);
+
             if (error) return (
                 <div className="min-h-screen bg-red-50 flex flex-col items-center justify-center p-6 text-center">
                     <div className="bg-white p-12 rounded-[3rem] shadow-2xl border-4 border-red-100 max-w-xl w-full">
@@ -277,6 +482,7 @@
 
             return (
                 <div className="min-h-screen pb-10 selection:bg-emerald-200">
+                    {}
                     <header className="bg-emerald-950 text-white p-8 md:p-24 relative overflow-hidden bg-cover bg-center" style={{ backgroundImage: `url('${IMG_HEADER}')` }}>
                         <div className="absolute inset-0 bg-emerald-950/85 backdrop-blur-[2px]"></div>
                         <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-10 relative z-10">
@@ -285,8 +491,8 @@
                                 <div>
                                     <h1 className="text-5xl md:text-7xl font-black italic tracking-tighter leading-none">BIAŁY BRZEG 2026</h1>
                                     <div className="mt-4 max-w-lg">
-                                        <p className="text-emerald-300 font-bold italic text-lg leading-tight">"{dailyQuoteObj.text}"</p>
-                                        <p className="text-emerald-500/60 font-black uppercase tracking-[0.4em] text-[8px] mt-2 italic">{dailyQuoteObj.author}</p>
+                                        <p className="text-emerald-300 font-bold italic text-lg leading-tight">"{dailyQuote.text}"</p>
+                                        <p className="text-emerald-500/60 font-black uppercase tracking-[0.4em] text-[8px] mt-2 italic">{dailyQuote.author}</p>
                                     </div>
                                 </div>
                             </div>
@@ -297,11 +503,19 @@
                         </div>
                     </header>
 
+                    {}
                     <nav className="max-w-6xl mx-auto -mt-10 px-4 sticky top-6 z-40">
                         <div className="bg-white/95 backdrop-blur-md rounded-[2.5rem] shadow-2xl border border-emerald-100 p-2 flex overflow-x-auto no-scrollbar gap-1">
-                            {['home', 'rezerwacje', 'jadlospis', 'wycieczki', 'kontakt', 'mapka'].map(tab => (
-                                <button key={tab} onClick={() => setActiveTab(tab)} className={`flex items-center gap-2 px-8 py-5 rounded-[1.8rem] transition-all flex-1 justify-center whitespace-nowrap ${activeTab === tab ? 'bg-emerald-600 text-white shadow-xl scale-[1.02] font-black' : 'text-emerald-900/40 hover:bg-emerald-50 font-bold'}`}>
-                                    <i data-lucide={tab === 'home' ? 'home' : tab === 'rezerwacje' ? 'map-pin' : tab === 'jadlospis' ? 'utensils' : tab === 'wycieczki' ? 'compass' : tab === 'kontakt' ? 'phone' : 'map'} className="w-4 h-4"></i>
+                            {['home', 'rezerwacje', 'jadlospis', 'wycieczki', 'osobodni', 'kontakt', 'mapka'].map(tab => (
+                                <button key={tab} onClick={() => setActiveTab(tab)} className={`flex items-center gap-2 px-6 py-5 rounded-[1.8rem] transition-all flex-1 justify-center whitespace-nowrap ${activeTab === tab ? 'bg-emerald-600 text-white shadow-xl scale-[1.02] font-black' : 'text-emerald-900/40 hover:bg-emerald-50 font-bold'}`}>
+                                    <i data-lucide={
+                                        tab === 'home' ? 'home' : 
+                                        tab === 'rezerwacje' ? 'map-pin' : 
+                                        tab === 'jadlospis' ? 'utensils' : 
+                                        tab === 'wycieczki' ? 'compass' : 
+                                        tab === 'osobodni' ? 'calculator' :
+                                        tab === 'kontakt' ? 'phone' : 'map'
+                                    } className="w-4 h-4"></i>
                                     <span className="text-[10px] uppercase tracking-widest">{tab === 'home' ? 'Start' : tab === 'mapka' ? 'Mapka' : tab}</span>
                                 </button>
                             ))}
@@ -309,6 +523,7 @@
                     </nav>
 
                     <main className="max-w-6xl mx-auto p-6 mt-16">
+                        {/* START TAB */}
                         {activeTab === 'home' && (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-10 animate-in">
                                 <div className="bg-white p-12 rounded-[4rem] shadow-sm border border-emerald-50 flex flex-col">
@@ -341,6 +556,7 @@
                             </div>
                         )}
 
+                        {/* JADŁOSPIS TAB */}
                         {activeTab === 'jadlospis' && (
                             <div className="max-w-4xl mx-auto bg-white p-12 rounded-[4.5rem] shadow-2xl text-center border border-orange-100 animate-in">
                                 <h2 className="text-6xl font-black uppercase mb-12 italic text-slate-900 leading-none">Jadłospis</h2>
@@ -369,6 +585,7 @@
                             </div>
                         )}
 
+                        {/* REZERWACJE TAB */}
                         {activeTab === 'rezerwacje' && (
                             <div className="bg-white p-12 rounded-[4.5rem] shadow-xl border border-emerald-50 animate-in">
                                 <div className="flex flex-col sm:flex-row justify-between items-center mb-16 gap-10">
@@ -404,6 +621,7 @@
                             </div>
                         )}
 
+                        {/* WYCIECZKI TAB */}
                         {activeTab === 'wycieczki' && (
                             <div className="bg-white p-12 rounded-[4.5rem] shadow-xl border border-blue-100 animate-in">
                                 <h2 className="text-5xl font-black uppercase mb-12 italic text-slate-900 leading-none">
@@ -413,36 +631,197 @@
                             </div>
                         )}
 
+                        {}
+                        {/* OSOBODNI TAB */}
+                        {activeTab === 'osobodni' && (
+                            <div className="bg-white p-8 md:p-12 rounded-[4.5rem] shadow-xl border border-emerald-100 animate-in">
+                                <div className="flex flex-col lg:flex-row justify-between lg:items-center mb-10 gap-6">
+                                    <div>
+                                        <h2 className="text-4xl md:text-5xl font-black uppercase italic text-emerald-950 tracking-tight leading-none flex items-center gap-3">
+                                            <i data-lucide="calculator" className="text-emerald-600 w-10 h-10"></i> Osobodni
+                                        </h2>
+                                        <p className="text-slate-400 font-bold text-[10px] uppercase tracking-[0.4em] mt-3 italic">
+                                            Widok dynamiczny z Excela • Synchronizowany na żywo
+                                        </p>
+                                    </div>
+                                    
+                                    <div className="flex flex-col sm:flex-row gap-3">
+                                        <div className="relative">
+                                            <i data-lucide="search" className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-600/50 w-4 h-4"></i>
+                                            <input 
+                                                type="text" 
+                                                placeholder="Szukaj w tabeli..." 
+                                                className="pl-11 pr-5 py-3.5 w-full sm:w-64 bg-slate-50 border-2 border-slate-100 focus:border-emerald-500 rounded-2xl outline-none font-bold text-sm italic transition-colors"
+                                                value={excelSearch}
+                                                onChange={e => setExcelSearch(e.target.value)}
+                                            />
+                                        </div>
+                                        <button 
+                                            onClick={loadExcelFromDropbox} 
+                                            className="px-5 py-3.5 bg-slate-100 hover:bg-slate-200 rounded-2xl font-bold text-sm flex items-center gap-2 transition-colors"
+                                            title="Odśwież dane"
+                                        >
+                                            <i data-lucide="refresh-cw" className="w-4 h-4"></i> Synchronizuj
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Pasek ładowania Excela */}
+                                {excelLoading ? (
+                                    <div className="flex flex-col items-center justify-center py-24 text-center">
+                                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mb-4"></div>
+                                        <p className="text-slate-500 font-bold italic text-sm">Pobieranie i analizowanie oryginalnego arkusza Excel z Dropbox...</p>
+                                    </div>
+                                ) : excelError ? (
+                                    <div className="bg-red-50 border-2 border-red-100 rounded-3xl p-8 mb-8 text-center">
+                                        <i data-lucide="alert-triangle" className="w-12 h-12 text-red-500 mx-auto mb-4"></i>
+                                        <h3 className="font-black uppercase text-red-900 mb-2">Automatyczny odczyt zablokowany</h3>
+                                        <p className="text-sm text-red-700/80 max-w-xl mx-auto mb-6 leading-relaxed">
+                                            {excelError}
+                                        </p>
+                                        <div className="flex flex-col sm:flex-row justify-center items-center gap-4">
+                                            <a 
+                                                href={EXCEL_URL + "&dl=1"}
+                                                target="_blank" 
+                                                rel="noopener noreferrer"
+                                                className="bg-emerald-700 hover:bg-emerald-800 text-white px-6 py-3 rounded-xl font-bold text-xs uppercase tracking-widest transition-all"
+                                            >
+                                                Pobierz plik ręcznie
+                                            </a>
+                                            <button 
+                                                onClick={() => fileInputRef.current.click()}
+                                                className="bg-white border-2 border-slate-200 hover:border-slate-300 text-slate-800 px-6 py-3 rounded-xl font-bold text-xs uppercase tracking-widest transition-all"
+                                            >
+                                                Wgraj pobrany plik
+                                            </button>
+                                            <input 
+                                                type="file" 
+                                                ref={fileInputRef} 
+                                                className="hidden" 
+                                                accept=".xlsx, .xls" 
+                                                onChange={handleFileUpload} 
+                                            />
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <>
+                                        {/* Wybór arkusza (kart obozów) */}
+                                        {excelData && excelData.sheetNames.length > 1 && (
+                                            <div className="flex flex-wrap gap-2 mb-8 border-b border-slate-100 pb-4">
+                                                {excelData.sheetNames.map(name => (
+                                                    <button
+                                                        key={name}
+                                                        onClick={() => setSelectedSheet(name)}
+                                                        className={`px-5 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${
+                                                            selectedSheet === name 
+                                                                ? 'bg-emerald-600 text-white shadow-md' 
+                                                                : 'bg-slate-50 text-slate-400 hover:bg-slate-100'
+                                                        }`}
+                                                    >
+                                                        {name}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        {/* Dynamiczne wskaźniki KPI (sumowane w locie ze sprawdzonych kolumn) */}
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                                            <div className="bg-emerald-50/50 p-6 rounded-3xl border border-emerald-100 text-center shadow-sm">
+                                                <div className="text-[10px] font-black uppercase text-emerald-900/60 tracking-wider">Osobodni Razem</div>
+                                                <div className="text-3xl font-black text-emerald-950 mt-1 tabular-nums">
+                                                    {Math.round(computedExcelTotals.osobodni)}
+                                                </div>
+                                            </div>
+                                            <div className="bg-emerald-50/50 p-6 rounded-3xl border border-emerald-100 text-center shadow-sm">
+                                                <div className="text-[10px] font-black uppercase text-emerald-900/60 tracking-wider">Uczestnicy</div>
+                                                <div className="text-3xl font-black text-emerald-950 mt-1 tabular-nums">
+                                                    {computedExcelTotals.uczestnicy}
+                                                </div>
+                                            </div>
+                                            <div className="bg-emerald-50/50 p-6 rounded-3xl border border-emerald-100 text-center shadow-sm">
+                                                <div className="text-[10px] font-black uppercase text-emerald-900/60 tracking-wider">Kadra</div>
+                                                <div className="text-3xl font-black text-emerald-950 mt-1 tabular-nums">
+                                                    {computedExcelTotals.kadra}
+                                                </div>
+                                            </div>
+                                            <div className="bg-emerald-50/50 p-6 rounded-3xl border border-emerald-100 text-center shadow-sm">
+                                                <div className="text-[10px] font-black uppercase text-emerald-900/60 tracking-wider">Łącznie osób</div>
+                                                <div className="text-3xl font-black text-emerald-950 mt-1 tabular-nums">
+                                                    {computedExcelTotals.razem || (computedExcelTotals.uczestnicy + computedExcelTotals.kadra)}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Tabela Excela z seryjną translacją dat */}
+                                        <div className="overflow-x-auto rounded-[2rem] border border-slate-100 shadow-sm max-h-[600px] overflow-y-auto">
+                                            <table className="w-full border-collapse bg-white text-left text-sm text-slate-700">
+                                                <thead className="bg-slate-50 font-black uppercase tracking-wider text-[10px] text-emerald-950 sticky top-0 border-b border-slate-100 z-10 shadow-sm">
+                                                    <tr>
+                                                        {sheetHeaderRow.map((cell, idx) => (
+                                                            <th key={idx} scope="col" className="px-6 py-4 whitespace-nowrap bg-slate-50">
+                                                                {String(cell || `Kolumna ${idx + 1}`)}
+                                                            </th>
+                                                        ))}
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-slate-100 font-medium">
+                                                    {sheetBodyRows.length > 0 ? (
+                                                        sheetBodyRows.map((row, rowIdx) => (
+                                                            <tr key={rowIdx} className="hover:bg-emerald-50/20 transition-colors">
+                                                                {sheetHeaderRow.map((_, colIdx) => (
+                                                                    <td key={colIdx} className="px-6 py-4 text-slate-900 text-sm whitespace-nowrap">
+                                                                        {row[colIdx] !== undefined ? formatCellValue(row[colIdx]) : ''}
+                                                                    </td>
+                                                                ))}
+                                                            </tr>
+                                                        ))
+                                                    ) : (
+                                                        <tr>
+                                                            <td colSpan={sheetHeaderRow.length || 1} className="text-center py-16 text-slate-300 font-bold italic uppercase tracking-widest text-xs">
+                                                                Brak danych do wyświetlenia
+                                                            </td>
+                                                        </tr>
+                                                    )}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </>
+                                )}
+
+                                <div className="mt-6 flex flex-col sm:flex-row justify-between items-center bg-slate-50 p-6 rounded-[2rem] gap-4">
+                                    <div className="flex items-center gap-3 text-slate-400 text-xs font-bold italic">
+                                        <i data-lucide="info" className="w-5 h-5 text-emerald-600 shrink-0"></i>
+                                        System ładuje dane bezpośrednio ze współdzielonego arkusza Dropbox na żywo.
+                                    </div>
+                                    <a 
+                                        href={EXCEL_URL + "&dl=1"} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-2 bg-emerald-700 hover:bg-emerald-800 text-white font-black text-xs uppercase tracking-widest px-6 py-3 rounded-xl transition-all shadow-md active:scale-95 whitespace-nowrap"
+                                    >
+                                        <i data-lucide="external-link" className="w-4 h-4"></i> Pobierz oryginalny plik Excel (.xlsx)
+                                    </a>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* KONTAKT TAB */}
                         {activeTab === 'kontakt' && (
                             <div className="bg-white p-12 rounded-[4.5rem] shadow-xl border border-red-100 animate-in">
                                 <h2 className="text-5xl font-black uppercase mb-12 italic text-red-600 leading-none">
                                     <i data-lucide="phone" className="text-red-600 inline mr-4"></i> Numery
                                 </h2>
-                                <div className="p-12 bg-red-50/20 border-2 border-red-100 rounded-[3rem] font-black text-2xl text-red-900 leading-relaxed shadow-inner space-y-6">
-                                    <div>
-                                        <span className="text-sm font-bold text-red-500/80 uppercase block tracking-wider leading-none mb-1">Komendant Zgrupowania</span>
-                                        <p>hm Agnieszka Ciepielewska <a href="tel:502498610" className="text-emerald-700 hover:underline">502 498 610</a></p>
-                                    </div>
-                                    <div>
-                                        <span className="text-sm font-bold text-red-500/80 uppercase block tracking-wider leading-none mb-1">Kwatermistrz</span>
-                                        <p>phm Jacek Kozieł <a href="tel:501294668" className="text-emerald-700 hover:underline">501 294 668</a></p>
-                                    </div>
-                                    <div>
-                                        <span className="text-sm font-bold text-red-500/80 uppercase block tracking-wider leading-none mb-1">Człowiek od spraw technicznych</span>
-                                        <p>hm Grzegorz Ciepielewski <a href="tel:502498610" className="text-emerald-700 hover:underline">502 498 610</a></p>
-                                    </div>
-                                    <div>
-                                        <span className="text-sm font-bold text-red-500/80 uppercase block tracking-wider leading-none mb-1">Pielęgniarka</span>
-                                        <p>Anna Pedryc <a href="tel:502257241" className="text-emerald-700 hover:underline">502 257 241</a></p>
-                                    </div>
-                                    <div>
-                                        <span className="text-sm font-bold text-red-500/80 uppercase block tracking-wider leading-none mb-1">Osoba techniczno-gospodarcza</span>
-                                        <p>Jakub Rusajczyk <a href="tel:500230912" className="text-emerald-700 hover:underline">500 230 912</a></p>
-                                    </div>
+                                <div className="p-12 bg-red-50/20 border-2 border-red-100 rounded-[3rem] font-black text-2xl text-red-900 leading-relaxed shadow-inner">
+                                    <p className="mb-4">Komendant Zgrupowania: hm Agnieszka Ciepielewska <a href="tel:502498610" className="text-emerald-700">502498709</a></p>
+                                    <p className="mb-4">Z-ca Komendanta: hm Grzegorz Ciepielewski <a href="tel:502498610" className="text-emerald-700">502498610</a></p>
+                                    <p className="mb-4">Kwatermistrz: phm Jacek Kozieł <a href="tel:501294668" className="text-emerald-700">501 294668</a></p>
+                                    <p className="mb-4">Pielęgniarka: Anna Pedryc <a href="tel:502257241" className="text-emerald-700">502257241</a></p>
+                                    <p>Osoba Techniczno-Gospodarcza: Jakub Rusajczyk <a href="tel:500230912" className="text-emerald-700">500230912</a></p>
                                 </div>
                             </div>
                         )}
 
+                        {/* MAPKA TAB */}
                         {activeTab === 'mapka' && (
                             <div className="bg-white p-6 md:p-12 rounded-[4.5rem] shadow-xl border border-emerald-100 animate-in text-center relative">
                                 <div className="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4">
@@ -478,7 +857,6 @@
                         )}
                     </main>
 
-                    {/* Booking Modal */}
                     {isBookingModalOpen && (
                         <div className="fixed inset-0 bg-emerald-950/95 backdrop-blur-3xl z-[100] flex items-center justify-center p-4">
                             <div className="bg-white w-full max-w-md rounded-[2.5rem] p-8 shadow-2xl relative overflow-hidden animate-in">
