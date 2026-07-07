@@ -42,7 +42,7 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useMemo } = React;
+        const { useState, useEffect, useMemo, useRef } = React;
 
         const LOCATIONS = ["STOŁÓWKA", "DUŻA WIATA", "ŚWIETLICA DOLNA", "ŚWIETLICA GÓRNA", "Altanka pod Sarenką", "Altanka pod Wiewiórką", "Altanka pod Sową", "Altanka pod Lisem"];
         // Hash for "1BialyBrzeg1"
@@ -61,7 +61,7 @@
             { text: "Bądź gotów!", author: "Robert Baden-Powell" },
             { text: "Patrz szerzej, a gdy już patrzysz szeroko, popatrz jeszcze szerzej.", author: "Robert Baden-Powell" },
             { text: "Harcerstwo to nie jest coś, co się umie, ale czym się jest.", author: "Andrzej Małkowski" },
-            { text: "Wszystko co polskie – ukochać, everything co prawe i szlachetne – w czyn zamieniać.", author: "Andrzej Małkowski" },
+            { text: "Wszystko co polskie – ukochać, wszystko co prawe i szlachetne – w czyn zamieniać.", author: "Andrzej Małkowski" },
             { text: "Mocą i bogactwem narodu są wolni i silni ludzie o niezłomnych charakterach.", author: "Andrzej Małkowski" },
             { text: "Skauting to nie tylko zabawa, to czynna służba drugiemu człowiekowi.", author: "Andrzej Małkowski" },
             { text: "Każdy dzień bez dobrego uczynku jest dniem bezpowrotnie straconym.", author: "Andrzej Małkowski" }
@@ -493,7 +493,6 @@
 
             return (
                 <div className="min-h-screen pb-10 selection:bg-emerald-200">
-                    {}
                     <header className="bg-emerald-950 text-white p-8 md:p-24 relative overflow-hidden bg-cover bg-center" style={{ backgroundImage: `url('${IMG_HEADER}')` }}>
                         <div className="absolute inset-0 bg-emerald-950/85 backdrop-blur-[2px]"></div>
                         <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-10 relative z-10">
@@ -533,7 +532,6 @@
                     </nav>
 
                     <main className="max-w-6xl mx-auto p-6 mt-16">
-                        {}
                         {/* START TAB */}
                         {activeTab === 'home' && (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-10 animate-in">
@@ -567,7 +565,6 @@
                             </div>
                         )}
 
-                        {}
                         {/* JADŁOSPIS TAB */}
                         {activeTab === 'jadlospis' && (
                             <div className="max-w-4xl mx-auto bg-white p-12 rounded-[4.5rem] shadow-2xl text-center border border-orange-100 animate-in">
@@ -597,7 +594,6 @@
                             </div>
                         )}
 
-                        {}
                         {/* REZERWACJE TAB */}
                         {activeTab === 'rezerwacje' && (
                             <div className="bg-white p-12 rounded-[4.5rem] shadow-xl border border-emerald-50 animate-in">
@@ -634,7 +630,6 @@
                             </div>
                         )}
 
-                        {}
                         {/* WYCIECZKI TAB */}
                         {activeTab === 'wycieczki' && (
                             <div className="bg-white p-12 rounded-[4.5rem] shadow-xl border border-blue-100 animate-in">
@@ -645,7 +640,6 @@
                             </div>
                         )}
 
-                        {}
                         {/* OSOBODNI TAB */}
                         {activeTab === 'osobodni' && (
                             <div className="bg-white p-8 md:p-12 rounded-[4.5rem] shadow-xl border border-emerald-100 animate-in">
@@ -819,7 +813,6 @@
                             </div>
                         )}
 
-                        {}
                         {/* KONTAKT TAB */}
                         {activeTab === 'kontakt' && (
                             <div className="bg-white p-12 rounded-[4.5rem] shadow-xl border border-red-100 animate-in">
@@ -872,6 +865,7 @@
                         )}
                     </main>
 
+                    {/* BOOKING MODAL */}
                     {isBookingModalOpen && (
                         <div className="fixed inset-0 bg-emerald-950/95 backdrop-blur-3xl z-[100] flex items-center justify-center p-4">
                             <div className="bg-white w-full max-w-md rounded-[2.5rem] p-8 shadow-2xl relative overflow-hidden animate-in">
