@@ -61,7 +61,7 @@
             { text: "Bądź gotów!", author: "Robert Baden-Powell" },
             { text: "Patrz szerzej, a gdy już patrzysz szeroko, popatrz jeszcze szerzej.", author: "Robert Baden-Powell" },
             { text: "Harcerstwo to nie jest coś, co się umie, ale czym się jest.", author: "Andrzej Małkowski" },
-            { text: "Wszystko co polskie – ukochać, wszystko co prawe i szlachetne – w czyn zamieniać.", author: "Andrzej Małkowski" },
+            { text: "Wszystko co polskie – ukochać, everything co prawe i szlachetne – w czyn zamieniać.", author: "Andrzej Małkowski" },
             { text: "Mocą i bogactwem narodu są wolni i silni ludzie o niezłomnych charakterach.", author: "Andrzej Małkowski" },
             { text: "Skauting to nie tylko zabawa, to czynna służba drugiemu człowiekowi.", author: "Andrzej Małkowski" },
             { text: "Każdy dzień bez dobrego uczynku jest dniem bezpowrotnie straconym.", author: "Andrzej Małkowski" }
@@ -70,7 +70,7 @@
         async function sha256(message) {
             try {
                 const msgBuffer = new TextEncoder().encode(message);
-                const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+                const hashBuffer = await crypto.subtle.digest('SHA-2-256', msgBuffer);
                 const hashArray = Array.from(new Uint8Array(hashBuffer));
                 return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
             } catch (e) {
@@ -123,7 +123,7 @@
             const [reservations, setReservations] = useState([]);
             const [extraContent, setExtraContent] = useState({ 
                 jadlospis: '', 
-                kontakt: `Komendant: hm Agnieszka Ciepielewska 502498709\nz-ca komendanta: hm Grzegorz Ciepielewski 502498610\nKwatermistrz: hm Jacek Kozieł 501294668`, 
+                kontakt: '', 
                 wycieczki: '' 
             });
             const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
@@ -224,7 +224,7 @@
                     parseExcelBuffer(arrayBuffer);
                 } catch (err) {
                     console.error("Błąd ładowania z Dropbox:", err);
-                    setExcelError("Nie udało się automatycznie połączyć z Dropbox (najprawdopodobniej z powodu reguł zabezpieczeń CORS w Twojej przeglądarce). Możesz pobrać plik oryginalny i załadować go ręcznie przyciskiem poniżej!");
+                    setExcelError("Nie udało się automatycznie połączyć z Dropbox (zabezpieczenia CORS w przeglądarce). Możesz pobrać plik oryginalny i załadować go ręcznie przyciskiem poniżej!");
                     setExcelLoading(false);
                 }
             };
@@ -381,7 +381,6 @@
                 return excelData.sheets[selectedSheet] || [];
             }, [excelData, selectedSheet]);
 
-            // Dynamiczne poszukiwanie właściwego wiersza nagłówkowego (omija wstępy, loga, puste scalone komórki)
             const headerRowDetection = useMemo(() => {
                 if (currentSheetGrid.length === 0) {
                     return { header: [], body: [] };
@@ -412,9 +411,7 @@
                     }
                 }
 
-                // Wiersz z największą ilością dopasowań uznajemy za nagłówek
                 const header = currentSheetGrid[bestRowIdx] || [];
-                // Pozostałe wiersze poniżej nagłówka to ciało tabeli
                 const body = currentSheetGrid.slice(bestRowIdx + 1).filter(row => {
                     return row.some(cell => cell !== '') && row !== header;
                 });
@@ -432,24 +429,38 @@
                 );
             }, [headerRowDetection, excelSearch]);
 
-            // Dynamiczne wyliczanie statystyk turnusów bez ryzyka nakładania się słów kluczowych
             const computedExcelTotals = useMemo(() => {
                 if (sheetHeaderRow.length === 0 || sheetBodyRows.length === 0) {
                     return { uczestnicy: 0, kadra: 0, razem: 0, osobodni: 0 };
                 }
 
-                // Precyzyjne przyporządkowanie kolumn przy pomocy definicji pozytywnych i negatywnych słów kluczowych
+                // Przyporządkowanie kolumn przy pomocy definicji słów kluczowych
                 const uIdx = findColumnIdx(sheetHeaderRow, ["uczestnic", "dzieci", "harcerz", "pionier"], ["osobodni", "kadra", "kadr"]);
                 const kIdx = findColumnIdx(sheetHeaderRow, ["kadra", "kadr", "opiekun", "wychowaw"], ["osobodni", "uczestni"]);
                 const rIdx = findColumnIdx(sheetHeaderRow, ["razem", "suma", "łącznie", "stan", "ilość osób", "liczba osób"], ["osobodni", "uczestni", "kadra"]);
                 const oIdx = findColumnIdx(sheetHeaderRow, ["osobodni", "osobo-dni", "osobo dni"], []);
 
+                // WAŻNE: Odfiltrowujemy wiersze sumujące/zbiorcze Excela, aby zapobiec podwójnemu liczeniu
+                const detailRows = sheetBodyRows.filter(row => {
+                    if (!row) return false;
+                    return !row.some(cell => {
+                        const val = String(cell || '').toLowerCase().trim().replace(/[:]/g, '');
+                        return val === 'suma' || 
+                               val === 'razem' || 
+                               val === 'ogółem' || 
+                               val === 'łącznie' || 
+                               val === 'podsumowanie' || 
+                               val === 'suma końcowa' ||
+                               val.startsWith('suma ');
+                    });
+                });
+
                 const sumCol = (idx) => {
                     if (idx === -1) return 0;
-                    return sheetBodyRows.reduce((sum, row) => {
+                    return detailRows.reduce((sum, row) => {
                         const cellVal = row[idx];
                         if (cellVal === undefined || cellVal === null) return sum;
-                        if (cellVal instanceof Date) return sum; // Daty pomijamy w kalkulacji sum liczbowych
+                        if (cellVal instanceof Date) return sum; // Daty pomijamy w sumach
                         const num = parseFloat(String(cellVal).replace(/\s/g, '').replace(',', '.'));
                         return isNaN(num) ? sum : sum + num;
                     }, 0);
@@ -503,7 +514,6 @@
                         </div>
                     </header>
 
-                    {}
                     <nav className="max-w-6xl mx-auto -mt-10 px-4 sticky top-6 z-40">
                         <div className="bg-white/95 backdrop-blur-md rounded-[2.5rem] shadow-2xl border border-emerald-100 p-2 flex overflow-x-auto no-scrollbar gap-1">
                             {['home', 'rezerwacje', 'jadlospis', 'wycieczki', 'osobodni', 'kontakt', 'mapka'].map(tab => (
@@ -523,6 +533,7 @@
                     </nav>
 
                     <main className="max-w-6xl mx-auto p-6 mt-16">
+                        {}
                         {/* START TAB */}
                         {activeTab === 'home' && (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-10 animate-in">
@@ -556,13 +567,14 @@
                             </div>
                         )}
 
+                        {}
                         {/* JADŁOSPIS TAB */}
                         {activeTab === 'jadlospis' && (
                             <div className="max-w-4xl mx-auto bg-white p-12 rounded-[4.5rem] shadow-2xl text-center border border-orange-100 animate-in">
                                 <h2 className="text-6xl font-black uppercase mb-12 italic text-slate-900 leading-none">Jadłospis</h2>
                                 {!isJadlospisEditing ? (
                                     <>
-                                        <div className="p-10 bg-orange-50/50 rounded-[4rem] italic text-base md:text-lg min-h-[150px] mb-12 flex items-center justify-center border-2 border-orange-100/30 font-black leading-relaxed shadow-inner text-slate-800 whitespace-pre-wrap">
+                                        <div className="p-10 bg-orange-50/50 rounded-[4rem] italic text-base md:text-lg min-h-[150px] mb-12 flex items-center justify-center border-2 border-orange-100/30 font-black leading-relaxed shadow-inner text-slate-800 whitespace-pre-wrap text-sm md:text-base">
                                             {extraContent.jadlospis || "Brak menu..."}
                                         </div>
                                         <div className="bg-slate-50 p-12 rounded-[3.5rem] border border-slate-200">
@@ -575,7 +587,7 @@
                                     </>
                                 ) : (
                                     <div className="space-y-8 animate-in zoom-in-95">
-                                        <textarea className="w-full h-[550px] p-16 border-4 border-emerald-100 rounded-[4rem] outline-none text-lg italic font-black text-center bg-emerald-50/20 shadow-inner focus:border-emerald-500 leading-relaxed" value={tempJadlospis} onChange={e => setTempJadlospis(e.target.value)} placeholder="Wpisz menu dnia..." />
+                                        <textarea className="w-full h-[550px] p-16 border-4 border-emerald-100 rounded-[4rem] outline-none text-lg italic font-black text-center bg-emerald-50/20 shadow-inner focus:border-emerald-500 leading-relaxed text-sm md:text-base" value={tempJadlospis} onChange={e => setTempJadlospis(e.target.value)} placeholder="Wpisz menu dnia..." />
                                         <div className="flex flex-col gap-4">
                                             <button onClick={handleSaveJadlospis} className="w-full bg-emerald-600 text-white py-10 rounded-[3.5rem] font-black uppercase text-3xl shadow-2xl italic leading-none">Zatwierdź Menu</button>
                                             <button onClick={() => setIsJadlospisEditing(false)} className="font-black uppercase tracking-widest text-slate-300 text-xs">Anuluj</button>
@@ -585,6 +597,7 @@
                             </div>
                         )}
 
+                        {}
                         {/* REZERWACJE TAB */}
                         {activeTab === 'rezerwacje' && (
                             <div className="bg-white p-12 rounded-[4.5rem] shadow-xl border border-emerald-50 animate-in">
@@ -621,6 +634,7 @@
                             </div>
                         )}
 
+                        {}
                         {/* WYCIECZKI TAB */}
                         {activeTab === 'wycieczki' && (
                             <div className="bg-white p-12 rounded-[4.5rem] shadow-xl border border-blue-100 animate-in">
@@ -724,7 +738,7 @@
                                             </div>
                                         )}
 
-                                        {/* Dynamiczne wskaźniki KPI (sumowane w locie ze sprawdzonych kolumn) */}
+                                        {/* Dynamiczne wskaźniki KPI */}
                                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
                                             <div className="bg-emerald-50/50 p-6 rounded-3xl border border-emerald-100 text-center shadow-sm">
                                                 <div className="text-[10px] font-black uppercase text-emerald-900/60 tracking-wider">Osobodni Razem</div>
@@ -752,7 +766,7 @@
                                             </div>
                                         </div>
 
-                                        {/* Tabela Excela z seryjną translacją dat */}
+                                        {/* Tabela Excela */}
                                         <div className="overflow-x-auto rounded-[2rem] border border-slate-100 shadow-sm max-h-[600px] overflow-y-auto">
                                             <table className="w-full border-collapse bg-white text-left text-sm text-slate-700">
                                                 <thead className="bg-slate-50 font-black uppercase tracking-wider text-[10px] text-emerald-950 sticky top-0 border-b border-slate-100 z-10 shadow-sm">
@@ -805,6 +819,7 @@
                             </div>
                         )}
 
+                        {}
                         {/* KONTAKT TAB */}
                         {activeTab === 'kontakt' && (
                             <div className="bg-white p-12 rounded-[4.5rem] shadow-xl border border-red-100 animate-in">
@@ -812,11 +827,11 @@
                                     <i data-lucide="phone" className="text-red-600 inline mr-4"></i> Numery
                                 </h2>
                                 <div className="p-12 bg-red-50/20 border-2 border-red-100 rounded-[3rem] font-black text-2xl text-red-900 leading-relaxed shadow-inner">
-                                    <p className="mb-4">Komendant Zgrupowania: hm Agnieszka Ciepielewska <a href="tel:502498610" className="text-emerald-700">502498709</a></p>
-                                    <p className="mb-4">Z-ca Komendanta: hm Grzegorz Ciepielewski <a href="tel:502498610" className="text-emerald-700">502498610</a></p>
-                                    <p className="mb-4">Kwatermistrz: phm Jacek Kozieł <a href="tel:501294668" className="text-emerald-700">501 294668</a></p>
-                                    <p className="mb-4">Pielęgniarka: Anna Pedryc <a href="tel:502257241" className="text-emerald-700">502257241</a></p>
-                                    <p>Osoba Techniczno-Gospodarcza: Jakub Rusajczyk <a href="tel:500230912" className="text-emerald-700">500230912</a></p>
+                                    <p className="mb-4">KOMENDANT ZGRUPOWANIA: hm Agnieszka Ciepielewska <a href="tel:502498610" className="text-emerald-700">502498610</a></p>
+                                    <p className="mb-4">KWATERMISTRZ: phm Jacek Kozieł <a href="tel:501294668" className="text-emerald-700">501 294668</a></p>
+                                    <p className="mb-4">CZŁOWIEK OD SPRAW TECHNICZNYCH: hm Grzegorz Ciepielewski <a href="tel:502498610" className="text-emerald-700">502498610</a></p>
+                                    <p className="mb-4">PIELĘGNIARKA: Anna Pedryc <a href="tel:502257241" className="text-emerald-700">502257241</a></p>
+                                    <p>OSOBA TECHNICZNO-GOSPODARCZA: Jakub Rusajczyk <a href="tel:500230912" className="text-emerald-700">500230912</a></p>
                                 </div>
                             </div>
                         )}
