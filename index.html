@@ -57,6 +57,7 @@
             "Ognisko na ewakuacji",
             "Ognisko nad rzeką"
         ];
+        
         // Hash for "1BialyBrzeg1"
         const COMMANDANT_HASH = "2b5f928e469557457788937001407768e16e53c457317e6515c65a0c3260c67e";
         
@@ -90,11 +91,9 @@
             }
         }
 
-        // Bezpieczne i precyzyjne formatowanie dat z komórek Excela
         const formatCellValue = (cell) => {
             if (cell === null || cell === undefined) return '';
             
-            // Obsługa seryjnego zapisu daty w Excelu (np. 46200 -> YYYY-MM-DD)
             if (typeof cell === 'number' && cell > 40000 && cell < 50000) {
                 try {
                     const jsDate = new Date((cell - 25569) * 86400 * 1000);
@@ -107,7 +106,6 @@
                 } catch (e) {}
             }
             
-            // Obsługa obiektów daty wygenerowanych przez parser SheetJS
             if (cell instanceof Date) {
                 if (!isNaN(cell.getTime())) {
                     const y = cell.getFullYear();
@@ -119,7 +117,6 @@
             return String(cell);
         };
 
-        // Inteligentne wyszukiwanie kolumny z wykluczeniem nakładających się słów
         const findColumnIdx = (header, positiveKeywords, negativeKeywords = []) => {
             return header.findIndex(h => {
                 const val = String(h || '').toLowerCase();
@@ -148,7 +145,6 @@
             const [error, setError] = useState(null);
             const [isInit, setIsInit] = useState(false);
 
-            // Stany dla modułu Excela (Osobodni)
             const [excelData, setExcelData] = useState(null); 
             const [selectedSheet, setSelectedSheet] = useState('');
             const [excelLoading, setExcelLoading] = useState(true);
@@ -202,7 +198,6 @@
             const parseExcelBuffer = (buffer) => {
                 try {
                     const data = new Uint8Array(buffer);
-                    // cellDates: true wymusza na parserze dekodowanie dat seryjnych do formatu JS Date
                     const workbook = XLSX.read(data, { type: 'array', cellDates: true });
                     const sheetsData = {};
                     
@@ -236,7 +231,7 @@
                     parseExcelBuffer(arrayBuffer);
                 } catch (err) {
                     console.error("Błąd ładowania z Dropbox:", err);
-                    setExcelError("Nie udało się automatycznie połączyć z Dropbox (zabezpieczenia CORS w przeglądarce). Możesz pobrać plik oryginalny i załadować go ręcznie przyciskiem poniżej!");
+                    setExcelError("Nie udało się automatycznie połączyć z Dropbox. Możesz załadować plik ręcznie!");
                     setExcelLoading(false);
                 }
             };
@@ -322,6 +317,7 @@
                 e.preventDefault();
                 setBookingError(null);
                 if (!user || !db) return;
+
                 const formData = {
                     location: e.target.location.value,
                     group: e.target.group.value,
@@ -330,11 +326,22 @@
                     date: e.target.date.value,
                     createdAt: Date.now()
                 };
-                const todayStr = getTodayDateStr(currentTime);
-                const nowTimeStr = getTimeStr(currentTime);
-                
-                if (formData.date < todayStr || (formData.date === todayStr && formData.timeStart < nowTimeStr)) {
+
+                // Połączenie wybranej daty i godziny rozpoczęcia w jeden obiekt czasu lokalnego
+                const reservationStart = new Date(`${formData.date}T${formData.timeStart}`);
+                const now = new Date();
+                const timeDiffMs = reservationStart.getTime() - now.getTime();
+
+                // Walidacja 1: Sprawdzenie rezerwacji wstecz
+                if (timeDiffMs < 0) {
                     setBookingError("Nie można dokonać rezerwacji wstecz!");
+                    return;
+                }
+
+                // Walidacja 2: Rezerwacja wybiegająca ponad 24 godziny w przyszłość
+                const maxAdvanceMs = 24 * 60 * 60 * 1000; // 24 godziny w milisekundach
+                if (timeDiffMs > maxAdvanceMs) {
+                    setBookingError("Rezerwacji wybranego miejsca można dokonać maksymalnie na 24 godziny przed jej rozpoczęciem!");
                     return;
                 }
                 
@@ -398,7 +405,6 @@
                     return { header: [], body: [] };
                 }
 
-                // Skanujemy pierwsze 15 wierszy pod kątem typowych słów kluczowych tabel osobodni
                 const keyTerms = [
                     "lp", "data", "termin", "drużyna", "obóz", "nazwisko", "imię", "osoba", "osoby",
                     "uczestnic", "kadra", "razem", "suma", "łącznie", "osobodni", "osobo-dni", "pobyt"
@@ -446,13 +452,11 @@
                     return { uczestnicy: 0, kadra: 0, razem: 0, osobodni: 0 };
                 }
 
-                // Przyporządkowanie kolumn przy pomocy definicji słów kluczowych
                 const uIdx = findColumnIdx(sheetHeaderRow, ["uczestnic", "dzieci", "harcerz", "pionier"], ["osobodni", "kadra", "kadr"]);
                 const kIdx = findColumnIdx(sheetHeaderRow, ["kadra", "kadr", "opiekun", "wychowaw"], ["osobodni", "uczestni"]);
                 const rIdx = findColumnIdx(sheetHeaderRow, ["razem", "suma", "łącznie", "stan", "ilość osób", "liczba osób"], ["osobodni", "uczestni", "kadra"]);
                 const oIdx = findColumnIdx(sheetHeaderRow, ["osobodni", "osobo-dni", "osobo dni"], []);
 
-                // WAŻNE: Odfiltrowujemy wiersze sumujące/zbiorcze Excela, aby zapobiec podwójnemu liczeniu
                 const detailRows = sheetBodyRows.filter(row => {
                     if (!row) return false;
                     return !row.some(cell => {
@@ -472,7 +476,7 @@
                     return detailRows.reduce((sum, row) => {
                         const cellVal = row[idx];
                         if (cellVal === undefined || cellVal === null) return sum;
-                        if (cellVal instanceof Date) return sum; // Daty pomijamy w sumach
+                        if (cellVal instanceof Date) return sum;
                         const num = parseFloat(String(cellVal).replace(/\s/g, '').replace(',', '.'));
                         return isNaN(num) ? sum : sum + num;
                     }, 0);
@@ -525,24 +529,25 @@
                         </div>
                     </header>
 
+                    {}
                     <nav className="max-w-6xl mx-auto -mt-10 px-4 sticky top-6 z-40">
                         <div className="bg-white/95 backdrop-blur-md rounded-[2.5rem] shadow-2xl border border-emerald-100 p-2 flex overflow-x-auto no-scrollbar gap-1">
-                            {['home', 'rezerwacje', 'jadlospis', 'wycieczki', 'osobodni', 'kontakt', 'mapka'].map(tab => (
+                            {['home', 'rezerwacje', 'jadlospis', 'wycieczki', 'osobodni', 'kontakt'].map(tab => (
                                 <button key={tab} onClick={() => setActiveTab(tab)} className={`flex items-center gap-2 px-6 py-5 rounded-[1.8rem] transition-all flex-1 justify-center whitespace-nowrap ${activeTab === tab ? 'bg-emerald-600 text-white shadow-xl scale-[1.02] font-black' : 'text-emerald-900/40 hover:bg-emerald-50 font-bold'}`}>
                                     <i data-lucide={
                                         tab === 'home' ? 'home' : 
                                         tab === 'rezerwacje' ? 'map-pin' : 
                                         tab === 'jadlospis' ? 'utensils' : 
                                         tab === 'wycieczki' ? 'compass' : 
-                                        tab === 'osobodni' ? 'calculator' :
-                                        tab === 'kontakt' ? 'phone' : 'map'
+                                        tab === 'osobodni' ? 'calculator' : 'phone'
                                     } className="w-4 h-4"></i>
-                                    <span className="text-[10px] uppercase tracking-widest">{tab === 'home' ? 'Start' : tab === 'mapka' ? 'Mapka' : tab}</span>
+                                    <span className="text-[10px] uppercase tracking-widest">{tab === 'home' ? 'Start' : tab}</span>
                                 </button>
                             ))}
                         </div>
                     </nav>
 
+                    {}
                     <main className="max-w-6xl mx-auto p-6 mt-16">
                         {/* START TAB */}
                         {activeTab === 'home' && (
@@ -625,7 +630,8 @@
                                                 <div className="text-center md:text-left mb-8 md:mb-0">
                                                     <div className="font-black text-emerald-950 uppercase text-4xl italic leading-none">{res.location}</div>
                                                     <div className="flex flex-wrap items-center gap-4 mt-6 justify-center md:justify-start">
-                                                        <span className="bg-white px-5 py-2 rounded-2xl text-[10px] font-black text-emerald-700 border border-emerald-100 uppercase italic">{res.group}</span>
+                                                        {}
+                                                        <span className="bg-white px-6 py-3 rounded-2xl text-lg md:text-xl font-black text-emerald-700 border border-emerald-100 uppercase italic shadow-sm">{res.group}</span>
                                                         <span className="text-[10px] font-bold text-slate-400 uppercase bg-slate-200/50 px-4 py-1.5 rounded-full">{res.date}</span>
                                                     </div>
                                                 </div>
@@ -642,7 +648,6 @@
                             </div>
                         )}
 
-                        {/* WYCIECZKI TAB */}
                         {activeTab === 'wycieczki' && (
                             <div className="bg-white p-12 rounded-[4.5rem] shadow-xl border border-blue-100 animate-in">
                                 <h2 className="text-5xl font-black uppercase mb-12 italic text-slate-900 leading-none">
@@ -686,7 +691,6 @@
                                     </div>
                                 </div>
 
-                                {/* Pasek ładowania Excela */}
                                 {excelLoading ? (
                                     <div className="flex flex-col items-center justify-center py-24 text-center">
                                         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mb-4"></div>
@@ -717,7 +721,6 @@
                                     </div>
                                 ) : (
                                     <>
-                                        {/* Wybór arkusza (kart obozów) */}
                                         {excelData && excelData.sheetNames.length > 1 && (
                                             <div className="flex flex-wrap gap-2 mb-8 border-b border-slate-100 pb-4">
                                                 {excelData.sheetNames.map(name => (
@@ -736,7 +739,6 @@
                                             </div>
                                         )}
 
-                                        {/* Dynamiczne wskaźniki KPI */}
                                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
                                             <div className="bg-emerald-50/50 p-6 rounded-3xl border border-emerald-100 text-center shadow-sm">
                                                 <div className="text-[10px] font-black uppercase text-emerald-900/60 tracking-wider">Osobodni Razem</div>
@@ -764,7 +766,6 @@
                                             </div>
                                         </div>
 
-                                        {/* Tabela Excela */}
                                         <div className="overflow-x-auto rounded-[2rem] border border-slate-100 shadow-sm max-h-[600px] overflow-y-auto">
                                             <table className="w-full border-collapse bg-white text-left text-sm text-slate-700">
                                                 <thead className="bg-slate-50 font-black uppercase tracking-wider text-[10px] text-emerald-950 sticky top-0 border-b border-slate-100 z-10 shadow-sm">
@@ -824,44 +825,9 @@
                                 </div>
                             </div>
                         )}
-
-                        {/* MAPKA TAB */}
-                        {activeTab === 'mapka' && (
-                            <div className="bg-white p-6 md:p-12 rounded-[4.5rem] shadow-xl border border-emerald-100 animate-in text-center relative">
-                                <div className="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4">
-                                    <h2 className="text-4xl md:text-5xl font-black uppercase italic text-emerald-950 tracking-tighter leading-none flex items-center gap-3">
-                                        <i data-lucide="map" className="text-emerald-600 w-10 h-10"></i> Mapa Stanicy
-                                    </h2>
-                                    <button 
-                                        onClick={() => setActiveTab('home')} 
-                                        className="bg-slate-900 text-white px-6 py-3.5 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-black transition-all flex items-center gap-2 shadow-md active:scale-95"
-                                    >
-                                        ✕ Zamknij i wróć
-                                    </button>
-                                </div>
-                                <div className="relative overflow-hidden rounded-[3rem] border-4 border-emerald-50 bg-slate-100/50 flex justify-center items-center p-4 shadow-inner min-h-[400px]">
-                                    <img 
-                                        src={IMG_MAP} 
-                                        alt="Mapa Stanicy Biały Brzeg" 
-                                        className="max-w-full max-h-[70vh] object-contain rounded-[2rem] shadow-lg transition-transform hover:scale-[1.01] duration-300"
-                                        onError={(e) => {
-                                            e.target.src = "https://placehold.co/800x600/064e3b/ffffff?text=Nie+udalo+sie+zaladowac+mapy";
-                                        }}
-                                    />
-                                </div>
-                                <div className="mt-8 flex justify-center">
-                                    <button 
-                                        onClick={() => setActiveTab('home')} 
-                                        className="bg-emerald-600 text-white px-12 py-5 rounded-[2.5rem] font-black text-base uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-xl hover:scale-[1.02] active:scale-95 italic"
-                                    >
-                                        Powrót do programu
-                                    </button>
-                                </div>
-                            </div>
-                        )}
                     </main>
 
-                    {/* BOOKING MODAL */}
+                    {/* BOOKING MODAL WITH 24H EXPLANATION BANNER */}
                     {isBookingModalOpen && (
                         <div className="fixed inset-0 bg-emerald-950/95 backdrop-blur-3xl z-[100] flex items-center justify-center p-4">
                             <div className="bg-white w-full max-w-md rounded-[2.5rem] p-8 shadow-2xl relative overflow-hidden animate-in">
@@ -869,6 +835,15 @@
                                     <h2 className="text-2xl font-black uppercase italic text-emerald-950 leading-none">Zajmij Punkt</h2>
                                     <button onClick={() => { setIsBookingModalOpen(false); setBookingError(null); }} className="w-10 h-10 bg-slate-100 rounded-full font-black text-lg">✕</button>
                                 </div>
+                                
+                                {/* Info Banner */}
+                                <div className="mb-4 bg-amber-50 border border-amber-200 text-amber-800 p-4 rounded-2xl text-[11px] font-bold leading-relaxed flex items-start gap-2.5">
+                                    <i data-lucide="info" className="w-4 h-4 shrink-0 mt-0.5 text-amber-600"></i>
+                                    <span>
+                                        <strong>Zasada 24 godzin:</strong> Rezerwacji wybranego miejsca można dokonać maksymalnie na <strong>24 godziny przed</strong> planowanym czasem jej rozpoczęcia. Rezerwacje wcześniejsze zostaną odrzucone.
+                                    </span>
+                                </div>
+
                                 <form onSubmit={handleAdd} className="space-y-4">
                                     <div className="space-y-1">
                                         <label className="text-[10px] font-black uppercase text-emerald-900 opacity-40 ml-4 italic">Miejsce</label>
