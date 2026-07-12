@@ -11,9 +11,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     
-    <!-- Silnik SheetJS do parsowania Excela w locie -->
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    
     <!-- Moduły Firebase -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
@@ -42,7 +39,7 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useMemo, useRef } = React;
+        const { useState, useEffect, useMemo } = React;
 
         const LOCATIONS = [
             "STOŁÓWKA", 
@@ -63,21 +60,18 @@
         
         const IMG_HEADER = "https://www.dropbox.com/scl/fi/h35st6ucsgr0vfaqk599p/IDENTYFIKATOR_BEZ-TEKSTU.png?rlkey=ql6aybqsctxferab69ozyhha9&st=g6ywzqam&dl=1";
         const IMG_LOGO = "https://www.dropbox.com/scl/fi/zr8lckek34w630una7jgc/logo-BB.jpg?rlkey=i605zzig81x7l8ji5yhyyiu5y&st=mrxsxpti&dl=1";
-        const IMG_MAP = "https://www.dropbox.com/scl/fi/69o9otia5gqlj9st1uw71/BB2026.png?rlkey=24lpkefyyrjc3u52pnfy5km6r&raw=1";
-
-        const EXCEL_URL = "https://www.dropbox.com/scl/fi/pgs03zqspj2s8xz4ybife/Profesjonalny_arkusz_osobodni_oboz_harcerski_v3.xlsx?rlkey=jtfrfokklz7g3ilkhqvdd5gmj";
 
         const BP_QUOTES = [
-            { text: "Zostawcie ten świat choć trochę lepszym, niż go zastaliście.", author: "Robert Baden-Powell" },
-            { text: "Najprawdziwsza ścieżka do szczęścia to dawanie go innym.", author: "Robert Baden-Powell" },
-            { text: "Skauting to wielka gra.", author: "Robert Baden-Powell" },
-            { text: "Bądź gotów!", author: "Robert Baden-Powell" },
-            { text: "Patrz szerzej, a gdy już patrzysz szeroko, popatrz jeszcze szerzej.", author: "Robert Baden-Powell" },
-            { text: "Harcerstwo to nie jest coś, co się umie, ale czym się jest.", author: "Andrzej Małkowski" },
-            { text: "Wszystko co polskie – ukochać, wszystko co prawe i szlachetne – w czyn zamieniać.", author: "Andrzej Małkowski" },
-            { text: "Mocą i bogactwem narodu są wolni i silni ludzie o niezłomnych charakterach.", author: "Andrzej Małkowski" },
-            { text: "Skauting to nie tylko zabawa, to czynna służba drugiemu człowiekowi.", author: "Andrzej Małkowski" },
-            { text: "Każdy dzień bez dobrego uczynku jest dniem bezpowrotnie straconym.", author: "Andrzej Małkowski" }
+            "Zostawcie ten świat choć trochę lepszym, niż go zastaliście. - Robert Baden-Powell",
+            "Najprawdziwsza ścieżka do szczęścia to dawanie go innym. - Robert Baden-Powell",
+            "Skauting to wielka gra. - Robert Baden-Powell",
+            "Bądź gotów! - Robert Baden-Powell",
+            "Patrz szerzej, a gdy już patrzysz szeroko, popatrz jeszcze szerzej. - Robert Baden-Powell",
+            "Harcerstwo to nie jest coś, co się umie, ale czym się jest. - Andrzej Małkowski",
+            "Wszystko co polskie – ukochać, wszystko co prawe i szlachetne – w czyn zamieniać. - Andrzej Małkowski",
+            "Mocą i bogactwem narodu są wolni i silni ludzie o niezłomnych charakterach. - Andrzej Małkowski",
+            "Skauting to nie tylko zabawa, to czynna służba drugiemu człowiekowi. - Andrzej Małkowski",
+            "Każdy dzień bez dobrego uczynku jest dniem bezpowrotnie straconym. - Andrzej Małkowski"
         ];
 
         async function sha256(message) {
@@ -91,48 +85,13 @@
             }
         }
 
-        const formatCellValue = (cell) => {
-            if (cell === null || cell === undefined) return '';
-            
-            if (typeof cell === 'number' && cell > 40000 && cell < 50000) {
-                try {
-                    const jsDate = new Date((cell - 25569) * 86400 * 1000);
-                    if (!isNaN(jsDate.getTime())) {
-                        const y = jsDate.getUTCFullYear();
-                        const m = String(jsDate.getUTCMonth() + 1).padStart(2, '0');
-                        const d = String(jsDate.getUTCDate()).padStart(2, '0');
-                        return `${y}-${m}-${d}`;
-                    }
-                } catch (e) {}
-            }
-            
-            if (cell instanceof Date) {
-                if (!isNaN(cell.getTime())) {
-                    const y = cell.getFullYear();
-                    const m = String(cell.getMonth() + 1).padStart(2, '0');
-                    const d = String(cell.getDate()).padStart(2, '0');
-                    return `${y}-${m}-${d}`;
-                }
-            }
-            return String(cell);
-        };
-
-        const findColumnIdx = (header, positiveKeywords, negativeKeywords = []) => {
-            return header.findIndex(h => {
-                const val = String(h || '').toLowerCase();
-                const matchesPositive = positiveKeywords.some(kw => val.includes(kw));
-                const matchesNegative = negativeKeywords.some(kw => val.includes(kw));
-                return matchesPositive && !matchesNegative;
-            });
-        };
-
         function App() {
             const [activeTab, setActiveTab] = useState('home');
             const [currentTime, setCurrentTime] = useState(new Date());
             const [reservations, setReservations] = useState([]);
             const [extraContent, setExtraContent] = useState({ 
                 jadlospis: '', 
-                kontakt: '', 
+                kontakt: `KOMENDANT ZGRUPOWANIA hm Agnieszka Ciepielewska 502498610\nKWATERMISTRZ phm Jacek Kozieł 501 294668\nCZŁOWIEK OD SPRAW TECHNICZNYCH hm Grzegorz Ciepielewski 502498610\nPIELĘGNIARKA Anna Pedryc 502257241\nOSOBA TECHNICZNO-GOSPODARCZA Jakub Rusajczyk 500230912`, 
                 wycieczki: '' 
             });
             const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
@@ -144,13 +103,6 @@
             const [user, setUser] = useState(null);
             const [error, setError] = useState(null);
             const [isInit, setIsInit] = useState(false);
-
-            const [excelData, setExcelData] = useState(null); 
-            const [selectedSheet, setSelectedSheet] = useState('');
-            const [excelLoading, setExcelLoading] = useState(true);
-            const [excelError, setExcelError] = useState(null);
-            const [excelSearch, setExcelSearch] = useState('');
-            const fileInputRef = useRef(null);
 
             const appId = typeof __app_id !== 'undefined' ? __app_id : 'stanica-bialy-brzeg';
 
@@ -183,80 +135,6 @@
                 if (rDate === todayStr && rTimeEnd > nowTimeStr) return true;
                 return false;
             };
-
-            const convertDropboxUrl = (url) => {
-                if (!url) return '';
-                let newUrl = url;
-                newUrl = newUrl.replace('www.dropbox.com', 'dl.dropboxusercontent.com');
-                const urlObj = new URL(newUrl);
-                urlObj.searchParams.set('raw', '1');
-                urlObj.searchParams.delete('dl');
-                urlObj.searchParams.delete('st');
-                return urlObj.toString();
-            };
-
-            const parseExcelBuffer = (buffer) => {
-                try {
-                    const data = new Uint8Array(buffer);
-                    const workbook = XLSX.read(data, { type: 'array', cellDates: true });
-                    const sheetsData = {};
-                    
-                    workbook.SheetNames.forEach(name => {
-                        const worksheet = workbook.Sheets[name];
-                        const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
-                        sheetsData[name] = rows.filter(row => row.some(cell => cell !== '')); 
-                    });
-                    
-                    setExcelData({
-                        sheetNames: workbook.SheetNames,
-                        sheets: sheetsData
-                    });
-                    setSelectedSheet(workbook.SheetNames[0]);
-                    setExcelLoading(false);
-                } catch (err) {
-                    console.error("Błąd parsowania:", err);
-                    setExcelError("Wystąpił błąd podczas analizy struktury pliku Excel.");
-                    setExcelLoading(false);
-                }
-            };
-
-            const loadExcelFromDropbox = async () => {
-                setExcelLoading(true);
-                setExcelError(null);
-                try {
-                    const directUrl = convertDropboxUrl(EXCEL_URL);
-                    const response = await fetch(directUrl);
-                    if (!response.ok) throw new Error("Odpowiedź sieciowa nie była prawidłowa.");
-                    const arrayBuffer = await response.arrayBuffer();
-                    parseExcelBuffer(arrayBuffer);
-                } catch (err) {
-                    console.error("Błąd ładowania z Dropbox:", err);
-                    setExcelError("Nie udało się automatycznie połączyć z Dropbox. Możesz załadować plik ręcznie!");
-                    setExcelLoading(false);
-                }
-            };
-
-            const handleFileUpload = (e) => {
-                const file = e.target.files[0];
-                if (!file) return;
-                setExcelLoading(true);
-                setExcelError(null);
-                const reader = new FileReader();
-                reader.onload = (event) => {
-                    parseExcelBuffer(event.target.result);
-                };
-                reader.onerror = () => {
-                    setExcelError("Wystąpił błąd podczas odczytywania przesłanego pliku.");
-                    setExcelLoading(false);
-                };
-                reader.readAsArrayBuffer(file);
-            };
-
-            useEffect(() => {
-                if (activeTab === 'osobodni') {
-                    loadExcelFromDropbox();
-                }
-            }, [activeTab]);
 
             useEffect(() => {
                 const startApp = async () => {
@@ -311,7 +189,7 @@
 
             useEffect(() => {
                 if (window.lucide) window.lucide.createIcons();
-            }, [activeTab, isInit, isBookingModalOpen, excelLoading, excelError]);
+            }, [activeTab, isInit, isBookingModalOpen]);
 
             const handleAdd = async (e) => {
                 e.preventDefault();
@@ -327,19 +205,16 @@
                     createdAt: Date.now()
                 };
 
-                // Połączenie wybranej daty i godziny rozpoczęcia w jeden obiekt czasu lokalnego
                 const reservationStart = new Date(`${formData.date}T${formData.timeStart}`);
                 const now = new Date();
                 const timeDiffMs = reservationStart.getTime() - now.getTime();
 
-                // Walidacja 1: Sprawdzenie rezerwacji wstecz
                 if (timeDiffMs < 0) {
                     setBookingError("Nie można dokonać rezerwacji wstecz!");
                     return;
                 }
 
-                // Walidacja 2: Rezerwacja wybiegająca ponad 24 godziny w przyszłość
-                const maxAdvanceMs = 24 * 60 * 60 * 1000; // 24 godziny w milisekundach
+                const maxAdvanceMs = 24 * 60 * 60 * 1000;
                 if (timeDiffMs > maxAdvanceMs) {
                     setBookingError("Rezerwacji wybranego miejsca można dokonać maksymalnie na 24 godziny przed jej rozpoczęciem!");
                     return;
@@ -395,101 +270,6 @@
                 setIsJadlospisEditing(false);
             };
 
-            const currentSheetGrid = useMemo(() => {
-                if (!excelData || !selectedSheet) return [];
-                return excelData.sheets[selectedSheet] || [];
-            }, [excelData, selectedSheet]);
-
-            const headerRowDetection = useMemo(() => {
-                if (currentSheetGrid.length === 0) {
-                    return { header: [], body: [] };
-                }
-
-                const keyTerms = [
-                    "lp", "data", "termin", "drużyna", "obóz", "nazwisko", "imię", "osoba", "osoby",
-                    "uczestnic", "kadra", "razem", "suma", "łącznie", "osobodni", "osobo-dni", "pobyt"
-                ];
-
-                let bestRowIdx = 0;
-                let maxMatches = -1;
-
-                const scanRange = Math.min(15, currentSheetGrid.length);
-                for (let r = 0; r < scanRange; r++) {
-                    const row = currentSheetGrid[r] || [];
-                    let matches = 0;
-                    row.forEach(cell => {
-                        const cellVal = String(cell || '').toLowerCase();
-                        if (keyTerms.some(term => cellVal.includes(term))) {
-                            matches++;
-                        }
-                    });
-                    if (matches > maxMatches) {
-                        maxMatches = matches;
-                        bestRowIdx = r;
-                    }
-                }
-
-                const header = currentSheetGrid[bestRowIdx] || [];
-                const body = currentSheetGrid.slice(bestRowIdx + 1).filter(row => {
-                    return row.some(cell => cell !== '') && row !== header;
-                });
-
-                return { header, body };
-            }, [currentSheetGrid]);
-
-            const sheetHeaderRow = useMemo(() => headerRowDetection.header, [headerRowDetection]);
-
-            const sheetBodyRows = useMemo(() => {
-                const body = headerRowDetection.body;
-                if (!excelSearch) return body;
-                return body.filter(row => 
-                    row.some(cell => String(cell).toLowerCase().includes(excelSearch.toLowerCase()))
-                );
-            }, [headerRowDetection, excelSearch]);
-
-            const computedExcelTotals = useMemo(() => {
-                if (sheetHeaderRow.length === 0 || sheetBodyRows.length === 0) {
-                    return { uczestnicy: 0, kadra: 0, razem: 0, osobodni: 0 };
-                }
-
-                const uIdx = findColumnIdx(sheetHeaderRow, ["uczestnic", "dzieci", "harcerz", "pionier"], ["osobodni", "kadra", "kadr"]);
-                const kIdx = findColumnIdx(sheetHeaderRow, ["kadra", "kadr", "opiekun", "wychowaw"], ["osobodni", "uczestni"]);
-                const rIdx = findColumnIdx(sheetHeaderRow, ["razem", "suma", "łącznie", "stan", "ilość osób", "liczba osób"], ["osobodni", "uczestni", "kadra"]);
-                const oIdx = findColumnIdx(sheetHeaderRow, ["osobodni", "osobo-dni", "osobo dni"], []);
-
-                const detailRows = sheetBodyRows.filter(row => {
-                    if (!row) return false;
-                    return !row.some(cell => {
-                        const val = String(cell || '').toLowerCase().trim().replace(/[:]/g, '');
-                        return val === 'suma' || 
-                               val === 'razem' || 
-                               val === 'ogółem' || 
-                               val === 'łącznie' || 
-                               val === 'podsumowanie' || 
-                               val === 'suma końcowa' ||
-                               val.startsWith('suma ');
-                    });
-                });
-
-                const sumCol = (idx) => {
-                    if (idx === -1) return 0;
-                    return detailRows.reduce((sum, row) => {
-                        const cellVal = row[idx];
-                        if (cellVal === undefined || cellVal === null) return sum;
-                        if (cellVal instanceof Date) return sum;
-                        const num = parseFloat(String(cellVal).replace(/\s/g, '').replace(',', '.'));
-                        return isNaN(num) ? sum : sum + num;
-                    }, 0);
-                };
-
-                return {
-                    uczestnicy: sumCol(uIdx),
-                    kadra: sumCol(kIdx),
-                    razem: sumCol(rIdx),
-                    osobodni: sumCol(oIdx)
-                };
-            }, [sheetHeaderRow, sheetBodyRows]);
-
             if (error) return (
                 <div className="min-h-screen bg-red-50 flex flex-col items-center justify-center p-6 text-center">
                     <div className="bg-white p-12 rounded-[3rem] shadow-2xl border-4 border-red-100 max-w-xl w-full">
@@ -517,8 +297,8 @@
                                 <div>
                                     <h1 className="text-5xl md:text-7xl font-black italic tracking-tighter leading-none">BIAŁY BRZEG 2026</h1>
                                     <div className="mt-4 max-w-lg">
-                                        <p className="text-emerald-300 font-bold italic text-lg leading-tight">"{dailyQuote.text}"</p>
-                                        <p className="text-emerald-500/60 font-black uppercase tracking-[0.4em] text-[8px] mt-2 italic">{dailyQuote.author}</p>
+                                        <p className="text-emerald-300 font-bold italic text-lg leading-tight">"{dailyQuote.split(" - ")[0]}"</p>
+                                        <p className="text-emerald-500/60 font-black uppercase tracking-[0.4em] text-[8px] mt-2 italic">{dailyQuote.split(" - ")[1] || "Robert Baden-Powell"}</p>
                                     </div>
                                 </div>
                             </div>
@@ -529,25 +309,17 @@
                         </div>
                     </header>
 
-                    {}
                     <nav className="max-w-6xl mx-auto -mt-10 px-4 sticky top-6 z-40">
                         <div className="bg-white/95 backdrop-blur-md rounded-[2.5rem] shadow-2xl border border-emerald-100 p-2 flex overflow-x-auto no-scrollbar gap-1">
-                            {['home', 'rezerwacje', 'jadlospis', 'wycieczki', 'osobodni', 'kontakt'].map(tab => (
-                                <button key={tab} onClick={() => setActiveTab(tab)} className={`flex items-center gap-2 px-6 py-5 rounded-[1.8rem] transition-all flex-1 justify-center whitespace-nowrap ${activeTab === tab ? 'bg-emerald-600 text-white shadow-xl scale-[1.02] font-black' : 'text-emerald-900/40 hover:bg-emerald-50 font-bold'}`}>
-                                    <i data-lucide={
-                                        tab === 'home' ? 'home' : 
-                                        tab === 'rezerwacje' ? 'map-pin' : 
-                                        tab === 'jadlospis' ? 'utensils' : 
-                                        tab === 'wycieczki' ? 'compass' : 
-                                        tab === 'osobodni' ? 'calculator' : 'phone'
-                                    } className="w-4 h-4"></i>
+                            {['home', 'rezerwacje', 'jadlospis', 'wycieczki', 'kontakt'].map(tab => (
+                                <button key={tab} onClick={() => setActiveTab(tab)} className={`flex items-center gap-2 px-8 py-5 rounded-[1.8rem] transition-all flex-1 justify-center whitespace-nowrap ${activeTab === tab ? 'bg-emerald-600 text-white shadow-xl scale-[1.02] font-black' : 'text-emerald-900/40 hover:bg-emerald-50 font-bold'}`}>
+                                    <i data-lucide={tab === 'home' ? 'home' : tab === 'rezerwacje' ? 'map-pin' : tab === 'jadlospis' ? 'utensils' : tab === 'wycieczki' ? 'compass' : 'phone'} className="w-4 h-4"></i>
                                     <span className="text-[10px] uppercase tracking-widest">{tab === 'home' ? 'Start' : tab}</span>
                                 </button>
                             ))}
                         </div>
                     </nav>
 
-                    {}
                     <main className="max-w-6xl mx-auto p-6 mt-16">
                         {/* START TAB */}
                         {activeTab === 'home' && (
@@ -559,12 +331,13 @@
                                     <div className="space-y-4 flex-1">
                                         {reservations.filter(r => isReservationActive(r.date, r.timeEnd)).length > 0 ? (
                                             reservations.filter(r => isReservationActive(r.date, r.timeEnd)).sort((a, b) => a.date.localeCompare(b.date) || a.timeStart.localeCompare(b.timeStart)).map(r => (
-                                                <div key={r.id} className="p-6 bg-emerald-50/50 border border-emerald-100 rounded-[2.5rem] flex justify-between items-center group">
+                                                <div key={r.id} className="p-6 bg-emerald-50/50 border border-emerald-100 rounded-[2.5rem] flex justify-between items-center group gap-4">
                                                     <div className="flex flex-col">
                                                         <span className="font-black text-emerald-800 text-2xl tabular-nums leading-none italic">{r.timeStart} - {r.timeEnd}</span>
-                                                        <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-1">{r.date}</span>
+                                                        <span className="text-[13px] font-black text-emerald-600 uppercase tracking-wide mt-1.5 bg-emerald-100/50 px-3 py-1 rounded-xl self-start">{r.group}</span>
+                                                        <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-2">{r.date}</span>
                                                     </div>
-                                                    <span className="uppercase font-black text-emerald-950 text-[10px] tracking-widest bg-white px-4 py-2 rounded-full shadow-sm">{r.location}</span>
+                                                    <span className="uppercase font-black text-emerald-950 text-[10px] tracking-widest bg-white px-4 py-2 rounded-full shadow-sm whitespace-nowrap">{r.location}</span>
                                                 </div>
                                             ))
                                         ) : (
@@ -588,7 +361,7 @@
                                 <h2 className="text-6xl font-black uppercase mb-12 italic text-slate-900 leading-none">Jadłospis</h2>
                                 {!isJadlospisEditing ? (
                                     <>
-                                        <div className="p-10 bg-orange-50/50 rounded-[4rem] italic text-base md:text-lg min-h-[150px] mb-12 flex items-center justify-center border-2 border-orange-100/30 font-black leading-relaxed shadow-inner text-slate-800 whitespace-pre-wrap text-sm md:text-base">
+                                        <div className="p-10 bg-orange-50/50 rounded-[4rem] italic text-base md:text-lg min-h-[150px] mb-12 flex items-center justify-center border-2 border-orange-100/30 font-black leading-relaxed shadow-inner text-slate-800 whitespace-pre-wrap">
                                             {extraContent.jadlospis || "Brak menu..."}
                                         </div>
                                         <div className="bg-slate-50 p-12 rounded-[3.5rem] border border-slate-200">
@@ -601,7 +374,7 @@
                                     </>
                                 ) : (
                                     <div className="space-y-8 animate-in zoom-in-95">
-                                        <textarea className="w-full h-[550px] p-16 border-4 border-emerald-100 rounded-[4rem] outline-none text-lg italic font-black text-center bg-emerald-50/20 shadow-inner focus:border-emerald-500 leading-relaxed text-sm md:text-base" value={tempJadlospis} onChange={e => setTempJadlospis(e.target.value)} placeholder="Wpisz menu dnia..." />
+                                        <textarea className="w-full h-[550px] p-16 border-4 border-emerald-100 rounded-[4rem] outline-none text-lg italic font-black text-center bg-emerald-50/20 shadow-inner focus:border-emerald-500 leading-relaxed" value={tempJadlospis} onChange={e => setTempJadlospis(e.target.value)} placeholder="Wpisz menu dnia..." />
                                         <div className="flex flex-col gap-4">
                                             <button onClick={handleSaveJadlospis} className="w-full bg-emerald-600 text-white py-10 rounded-[3.5rem] font-black uppercase text-3xl shadow-2xl italic leading-none">Zatwierdź Menu</button>
                                             <button onClick={() => setIsJadlospisEditing(false)} className="font-black uppercase tracking-widest text-slate-300 text-xs">Anuluj</button>
@@ -630,7 +403,6 @@
                                                 <div className="text-center md:text-left mb-8 md:mb-0">
                                                     <div className="font-black text-emerald-950 uppercase text-4xl italic leading-none">{res.location}</div>
                                                     <div className="flex flex-wrap items-center gap-4 mt-6 justify-center md:justify-start">
-                                                        {}
                                                         <span className="bg-white px-6 py-3 rounded-2xl text-lg md:text-xl font-black text-emerald-700 border border-emerald-100 uppercase italic shadow-sm">{res.group}</span>
                                                         <span className="text-[10px] font-bold text-slate-400 uppercase bg-slate-200/50 px-4 py-1.5 rounded-full">{res.date}</span>
                                                     </div>
@@ -648,165 +420,13 @@
                             </div>
                         )}
 
+                        {/* WYCIECZKI TAB */}
                         {activeTab === 'wycieczki' && (
                             <div className="bg-white p-12 rounded-[4.5rem] shadow-xl border border-blue-100 animate-in">
                                 <h2 className="text-5xl font-black uppercase mb-12 italic text-slate-900 leading-none">
                                     <i data-lucide="compass" className="text-blue-600 inline mr-4"></i> Wycieczki
                                 </h2>
                                 <textarea className="w-full h-[600px] p-12 bg-blue-50/20 border-2 border-blue-100 rounded-[3rem] outline-none font-mono text-2xl font-bold leading-relaxed focus:border-blue-400 transition-colors" value={extraContent.wycieczki} onChange={e => updateContent('wycieczki', e.target.value)} placeholder="Godzina, Grupa, Miejsce..." />
-                            </div>
-                        )}
-
-                        {/* OSOBODNI TAB */}
-                        {activeTab === 'osobodni' && (
-                            <div className="bg-white p-8 md:p-12 rounded-[4.5rem] shadow-xl border border-emerald-100 animate-in">
-                                <div className="flex flex-col lg:flex-row justify-between lg:items-center mb-10 gap-6">
-                                    <div>
-                                        <h2 className="text-4xl md:text-5xl font-black uppercase italic text-emerald-950 tracking-tight leading-none flex items-center gap-3">
-                                            <i data-lucide="calculator" className="text-emerald-600 w-10 h-10"></i> Osobodni
-                                        </h2>
-                                        <p className="text-slate-400 font-bold text-[10px] uppercase tracking-[0.4em] mt-3 italic">
-                                            Widok dynamiczny z Excela • Synchronizowany na żywo
-                                        </p>
-                                    </div>
-                                    
-                                    <div className="flex flex-col sm:flex-row gap-3">
-                                        <div className="relative">
-                                            <i data-lucide="search" className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-600/50 w-4 h-4"></i>
-                                            <input 
-                                                type="text" 
-                                                placeholder="Szukaj w tabeli..." 
-                                                className="pl-11 pr-5 py-3.5 w-full sm:w-64 bg-slate-50 border-2 border-slate-100 focus:border-emerald-500 rounded-2xl outline-none font-bold text-sm italic transition-colors"
-                                                value={excelSearch}
-                                                onChange={e => setExcelSearch(e.target.value)}
-                                            />
-                                        </div>
-                                        <button 
-                                            onClick={loadExcelFromDropbox} 
-                                            className="px-5 py-3.5 bg-slate-100 hover:bg-slate-200 rounded-2xl font-bold text-sm flex items-center gap-2 transition-colors"
-                                            title="Odśwież dane"
-                                        >
-                                            <i data-lucide="refresh-cw" className="w-4 h-4"></i> Synchronizuj
-                                        </button>
-                                    </div>
-                                </div>
-
-                                {excelLoading ? (
-                                    <div className="flex flex-col items-center justify-center py-24 text-center">
-                                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mb-4"></div>
-                                        <p className="text-slate-500 font-bold italic text-sm">Pobieranie i analizowanie oryginalnego arkusza Excel z Dropbox...</p>
-                                    </div>
-                                ) : excelError ? (
-                                    <div className="bg-red-50 border-2 border-red-100 rounded-3xl p-8 mb-8 text-center">
-                                        <i data-lucide="alert-triangle" className="w-12 h-12 text-red-500 mx-auto mb-4"></i>
-                                        <h3 className="font-black uppercase text-red-900 mb-2">Automatyczny odczyt zablokowany</h3>
-                                        <p className="text-sm text-red-700/80 max-w-xl mx-auto mb-6 leading-relaxed">
-                                            {excelError}
-                                        </p>
-                                        <div className="flex justify-center items-center gap-4">
-                                            <button 
-                                                onClick={() => fileInputRef.current.click()}
-                                                className="bg-emerald-700 hover:bg-emerald-800 text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all"
-                                            >
-                                                Wgraj plik z dysku (.xlsx)
-                                            </button>
-                                            <input 
-                                                type="file" 
-                                                ref={fileInputRef} 
-                                                className="hidden" 
-                                                accept=".xlsx, .xls" 
-                                                onChange={handleFileUpload} 
-                                            />
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <>
-                                        {excelData && excelData.sheetNames.length > 1 && (
-                                            <div className="flex flex-wrap gap-2 mb-8 border-b border-slate-100 pb-4">
-                                                {excelData.sheetNames.map(name => (
-                                                    <button
-                                                        key={name}
-                                                        onClick={() => setSelectedSheet(name)}
-                                                        className={`px-5 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${
-                                                            selectedSheet === name 
-                                                                ? 'bg-emerald-600 text-white shadow-md' 
-                                                                : 'bg-slate-50 text-slate-400 hover:bg-slate-100'
-                                                        }`}
-                                                    >
-                                                        {name}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        )}
-
-                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                                            <div className="bg-emerald-50/50 p-6 rounded-3xl border border-emerald-100 text-center shadow-sm">
-                                                <div className="text-[10px] font-black uppercase text-emerald-900/60 tracking-wider">Osobodni Razem</div>
-                                                <div className="text-3xl font-black text-emerald-950 mt-1 tabular-nums">
-                                                    {Math.round(computedExcelTotals.osobodni)}
-                                                </div>
-                                            </div>
-                                            <div className="bg-emerald-50/50 p-6 rounded-3xl border border-emerald-100 text-center shadow-sm">
-                                                <div className="text-[10px] font-black uppercase text-emerald-900/60 tracking-wider">Uczestnicy</div>
-                                                <div className="text-3xl font-black text-emerald-950 mt-1 tabular-nums">
-                                                    {computedExcelTotals.uczestnicy}
-                                                </div>
-                                            </div>
-                                            <div className="bg-emerald-50/50 p-6 rounded-3xl border border-emerald-100 text-center shadow-sm">
-                                                <div className="text-[10px] font-black uppercase text-emerald-900/60 tracking-wider">Kadra</div>
-                                                <div className="text-3xl font-black text-emerald-950 mt-1 tabular-nums">
-                                                    {computedExcelTotals.kadra}
-                                                </div>
-                                            </div>
-                                            <div className="bg-emerald-50/50 p-6 rounded-3xl border border-emerald-100 text-center shadow-sm">
-                                                <div className="text-[10px] font-black uppercase text-emerald-900/60 tracking-wider">Łącznie osób</div>
-                                                <div className="text-3xl font-black text-emerald-950 mt-1 tabular-nums">
-                                                    {computedExcelTotals.razem || (computedExcelTotals.uczestnicy + computedExcelTotals.kadra)}
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div className="overflow-x-auto rounded-[2rem] border border-slate-100 shadow-sm max-h-[600px] overflow-y-auto">
-                                            <table className="w-full border-collapse bg-white text-left text-sm text-slate-700">
-                                                <thead className="bg-slate-50 font-black uppercase tracking-wider text-[10px] text-emerald-950 sticky top-0 border-b border-slate-100 z-10 shadow-sm">
-                                                    <tr>
-                                                        {sheetHeaderRow.map((cell, idx) => (
-                                                            <th key={idx} scope="col" className="px-6 py-4 whitespace-nowrap bg-slate-50">
-                                                                {String(cell || `Kolumna ${idx + 1}`)}
-                                                            </th>
-                                                        ))}
-                                                    </tr>
-                                                </thead>
-                                                <tbody className="divide-y divide-slate-100 font-medium">
-                                                    {sheetBodyRows.length > 0 ? (
-                                                        sheetBodyRows.map((row, rowIdx) => (
-                                                            <tr key={rowIdx} className="hover:bg-emerald-50/20 transition-colors">
-                                                                {sheetHeaderRow.map((_, colIdx) => (
-                                                                    <td key={colIdx} className="px-6 py-4 text-slate-900 text-sm whitespace-nowrap">
-                                                                        {row[colIdx] !== undefined ? formatCellValue(row[colIdx]) : ''}
-                                                                    </td>
-                                                                ))}
-                                                            </tr>
-                                                        ))
-                                                    ) : (
-                                                        <tr>
-                                                            <td colSpan={sheetHeaderRow.length || 1} className="text-center py-16 text-slate-300 font-bold italic uppercase tracking-widest text-xs">
-                                                                Brak danych do wyświetlenia
-                                                            </td>
-                                                        </tr>
-                                                    )}
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    </>
-                                )}
-
-                                <div className="mt-6 flex flex-col sm:flex-row justify-center items-center bg-slate-50 p-6 rounded-[2rem] gap-4">
-                                    <div className="flex items-center gap-3 text-slate-400 text-xs font-bold italic">
-                                        <i data-lucide="info" className="w-5 h-5 text-emerald-600 shrink-0"></i>
-                                        System ładuje dane bezpośrednio ze współdzielonego arkusza Dropbox na żywo.
-                                    </div>
-                                </div>
                             </div>
                         )}
 
@@ -827,24 +447,24 @@
                         )}
                     </main>
 
-                    {/* BOOKING MODAL WITH 24H EXPLANATION BANNER */}
+                    {/* BOOKING MODAL - RESPONSIVE MOBILE FIX */}
                     {isBookingModalOpen && (
-                        <div className="fixed inset-0 bg-emerald-950/95 backdrop-blur-3xl z-[100] flex items-center justify-center p-4">
-                            <div className="bg-white w-full max-w-md rounded-[2.5rem] p-8 shadow-2xl relative overflow-hidden animate-in">
-                                <div className="flex justify-between items-center mb-6">
-                                    <h2 className="text-2xl font-black uppercase italic text-emerald-950 leading-none">Zajmij Punkt</h2>
-                                    <button onClick={() => { setIsBookingModalOpen(false); setBookingError(null); }} className="w-10 h-10 bg-slate-100 rounded-full font-black text-lg">✕</button>
+                        <div className="fixed inset-0 bg-emerald-950/95 backdrop-blur-3xl z-[100] flex items-center justify-center p-2 sm:p-4">
+                            <div className="bg-white w-full max-w-md rounded-[2rem] sm:rounded-[2.5rem] p-5 sm:p-8 shadow-2xl relative overflow-y-auto max-h-[92vh] sm:max-h-[95vh] animate-in">
+                                <div className="flex justify-between items-center mb-4 sm:mb-6">
+                                    <h2 className="text-xl sm:text-2xl font-black uppercase italic text-emerald-950 leading-none">Zajmij Punkt</h2>
+                                    <button onClick={() => { setIsBookingModalOpen(false); setBookingError(null); }} className="w-8 h-8 sm:w-10 sm:h-10 bg-slate-100 rounded-full font-black text-sm flex items-center justify-center">✕</button>
                                 </div>
                                 
                                 {/* Info Banner */}
-                                <div className="mb-4 bg-amber-50 border border-amber-200 text-amber-800 p-4 rounded-2xl text-[11px] font-bold leading-relaxed flex items-start gap-2.5">
+                                <div className="mb-4 bg-amber-50 border border-amber-200 text-amber-800 p-3 sm:p-4 rounded-xl sm:rounded-2xl text-[10px] sm:text-[11px] font-bold leading-relaxed flex items-start gap-2">
                                     <i data-lucide="info" className="w-4 h-4 shrink-0 mt-0.5 text-amber-600"></i>
                                     <span>
                                         <strong>Zasada 24 godzin:</strong> Rezerwacji wybranego miejsca można dokonać maksymalnie na <strong>24 godziny przed</strong> planowanym czasem jej rozpoczęcia. Rezerwacje wcześniejsze zostaną odrzucone.
                                     </span>
                                 </div>
 
-                                <form onSubmit={handleAdd} className="space-y-4">
+                                <form onSubmit={handleAdd} className="space-y-3 sm:space-y-4">
                                     <div className="space-y-1">
                                         <label className="text-[10px] font-black uppercase text-emerald-900 opacity-40 ml-4 italic">Miejsce</label>
                                         <select name="location" className="w-full p-4 bg-slate-50 rounded-2xl border-2 border-slate-100 font-bold italic outline-none focus:border-emerald-500">
@@ -856,8 +476,14 @@
                                         <input name="group" className="w-full p-4 bg-slate-50 rounded-2xl border-2 border-slate-100 font-bold italic outline-none focus:border-emerald-500" placeholder="np. 22 DH" required />
                                     </div>
                                     <div className="grid grid-cols-2 gap-4">
-                                        <input name="timeStart" type="time" className="w-full p-4 bg-slate-50 rounded-2xl border-2 border-slate-100 font-black text-2xl text-center" required />
-                                        <input name="timeEnd" type="time" className="w-full p-4 bg-slate-50 rounded-2xl border-2 border-slate-100 font-black text-2xl text-center" required />
+                                        <div>
+                                            <label className="text-[10px] font-black uppercase text-emerald-900 opacity-40 ml-4 italic">Od</label>
+                                            <input name="timeStart" type="time" className="w-full p-4 bg-slate-50 rounded-2xl border-2 border-slate-100 font-black text-lg sm:text-2xl text-center" required />
+                                        </div>
+                                        <div>
+                                            <label className="text-[10px] font-black uppercase text-emerald-900 opacity-40 ml-4 italic">Do</label>
+                                            <input name="timeEnd" type="time" className="w-full p-4 bg-slate-50 rounded-2xl border-2 border-slate-100 font-black text-lg sm:text-2xl text-center" required />
+                                        </div>
                                     </div>
                                     <div className="space-y-1">
                                         <label className="text-[10px] font-black uppercase text-emerald-900 opacity-40 ml-4 italic">Data</label>
@@ -865,7 +491,7 @@
                                     </div>
                                     {bookingError && <div className="bg-red-50 border border-red-100 p-3 rounded-xl text-red-600 text-[10px] font-black uppercase text-center italic animate-pulse">{bookingError}</div>}
                                     <div className="flex flex-col gap-3 pt-4">
-                                        <button type="submit" className="w-full bg-emerald-600 text-white py-5 rounded-[2rem] font-black uppercase tracking-[0.4em] text-lg italic leading-none">Zatwierdź</button>
+                                        <button type="submit" className="w-full bg-emerald-600 text-white py-4 sm:py-5 rounded-[2rem] font-black uppercase tracking-[0.4em] text-md sm:text-lg italic leading-none">Zatwierdź</button>
                                         <button type="button" onClick={() => setIsBookingModalOpen(false)} className="w-full font-black uppercase text-slate-300 text-[10px]">Anuluj</button>
                                     </div>
                                 </form>
