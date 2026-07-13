@@ -39,7 +39,7 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useMemo } = React;
+        const { useState, useEffect, useMemo, useRef } = React;
 
         const LOCATIONS = [
             "STOŁÓWKA", 
@@ -55,34 +55,158 @@
             "Ognisko nad rzeką"
         ];
         
-        // Hash for "1BialyBrzeg1"
+        // Bezpieczny odcisk hasła SHA-256 dla hasła komendanta: "1BialyBrzeg1"
         const COMMANDANT_HASH = "2b5f928e469557457788937001407768e16e53c457317e6515c65a0c3260c67e";
         
         const IMG_HEADER = "https://www.dropbox.com/scl/fi/h35st6ucsgr0vfaqk599p/IDENTYFIKATOR_BEZ-TEKSTU.png?rlkey=ql6aybqsctxferab69ozyhha9&st=g6ywzqam&dl=1";
         const IMG_LOGO = "https://www.dropbox.com/scl/fi/zr8lckek34w630una7jgc/logo-BB.jpg?rlkey=i605zzig81x7l8ji5yhyyiu5y&st=mrxsxpti&dl=1";
 
-        const BP_QUOTES = [
-            "Zostawcie ten świat choć trochę lepszym, niż go zastaliście. - Robert Baden-Powell",
-            "Najprawdziwsza ścieżka do szczęścia to dawanie go innym. - Robert Baden-Powell",
-            "Skauting to wielka gra. - Robert Baden-Powell",
-            "Bądź gotów! - Robert Baden-Powell",
-            "Patrz szerzej, a gdy już patrzysz szeroko, popatrz jeszcze szerzej. - Robert Baden-Powell",
-            "Harcerstwo to nie jest coś, co się umie, ale czym się jest. - Andrzej Małkowski",
-            "Wszystko co polskie – ukochać, wszystko co prawe i szlachetne – w czyn zamieniać. - Andrzej Małkowski",
-            "Mocą i bogactwem narodu są wolni i silni ludzie o niezłomnych charakterach. - Andrzej Małkowski",
-            "Skauting to nie tylko zabawa, to czynna służba drugiemu człowiekowi. - Andrzej Małkowski",
-            "Każdy dzień bez dobrego uczynku jest dniem bezpowrotnie straconym. - Andrzej Małkowski"
+        const ALL_QUOTES = [
+            { text: "Zostawcie ten świat choć trochę lepszym, niż go zastaliście.", author: "Robert Baden-Powell" },
+            { text: "Najprawdziwsza ścieżka do szczęścia to dawanie go innym.", author: "Robert Baden-Powell" },
+            { text: "Skauting to wielka gra.", author: "Robert Baden-Powell" },
+            { text: "Bądź gotów!", author: "Robert Baden-Powell" },
+            { text: "Patrz szerzej, a gdy już patrzysz szeroko, popatrz jeszcze szerzej.", author: "Robert Baden-Powell" },
+            { text: "Życie bez przygód byłoby strasznie nudne.", author: "Robert Baden-Powell" },
+            { text: "Uśmiech jest kluczem, który pasuje do zamka w sercu każdego człowieka.", author: "Robert Baden-Powell" },
+            { text: "Szczęście nie jest dziełem przypadku, lecz wynikiem wysiłku.", author: "Robert Baden-Powell" },
+            { text: "Prawdziwy skaut widzi we wszystkim dobrą stronę.", author: "Robert Baden-Powell" },
+            { text: "Wszystko co polskie – ukochać, wszystko co prawe i szlachetne – w czyn zamieniać.", author: "Andrzej Małkowski" },
+            { text: "Harcerstwo to nie jest coś, co się umie, ale czym się jest.", author: "Andrzej Małkowski" },
+            { text: "Mocą i bogactwem narodu są wolni i silni ludzie o niezłomnych charakterach.", author: "Andrzej Małkowski" },
+            { text: "Skauting to nie tylko zabawa, to czynna służba drugiemu człowiekowi.", author: "Andrzej Małkowski" },
+            { text: "Każdy dzień bez dobrego uczynku jest dniem bezpowrotnie straconym.", author: "Andrzej Małkowski" },
+            { text: "Harcerzem jest się zawsze, nie tylko w mundurze.", author: "Andrzej Małkowski" }
         ];
 
         async function sha256(message) {
             try {
                 const msgBuffer = new TextEncoder().encode(message);
-                const hashBuffer = await crypto.subtle.digest('SHA-2-256', msgBuffer);
+                const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
                 const hashArray = Array.from(new Uint8Array(hashBuffer));
                 return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
             } catch (e) {
                 return null;
             }
+        }
+
+        function WeatherForecast() {
+            const [weather, setWeather] = useState(null);
+            const [loading, setLoading] = useState(true);
+            const [error, setError] = useState(false);
+
+            useEffect(() => {
+                const fetchWeather = async () => {
+                    try {
+                        const response = await fetch('https://api.openweathermap.org/data/2.5/forecast?lat=51.032398&lon=19.874979&units=metric&lang=pl&appid=c3934d0dbe5475d137d2f656dd7f20d7');
+                        if (!response.ok) throw new Error();
+                        const data = await response.json();
+                        
+                        // 1. Hourly (next 3 data points)
+                        const hourly = data.list.slice(0, 3);
+                        
+                        // 2. Tomorrow & Day After Tomorrow daily forecast extraction
+                        const today = new Date();
+                        const tomorrow = new Date(today);
+                        tomorrow.setDate(today.getDate() + 1);
+                        const dayAfter = new Date(today);
+                        dayAfter.setDate(today.getDate() + 2);
+                        
+                        const tomorrowStr = tomorrow.toISOString().split('T')[0];
+                        const dayAfterStr = dayAfter.toISOString().split('T')[0];
+                        
+                        // Pick daytime forecast (closest to midday) for tomorrow and day after
+                        let tomorrowForecast = data.list.find(item => item.dt_txt.includes(tomorrowStr) && (item.dt_txt.includes("12:00:00") || item.dt_txt.includes("15:00:00")));
+                        if (!tomorrowForecast) tomorrowForecast = data.list.find(item => item.dt_txt.includes(tomorrowStr));
+                        
+                        let dayAfterForecast = data.list.find(item => item.dt_txt.includes(dayAfterStr) && (item.dt_txt.includes("12:00:00") || item.dt_txt.includes("15:00:00")));
+                        if (!dayAfterForecast) dayAfterForecast = data.list.find(item => item.dt_txt.includes(dayAfterStr));
+
+                        setWeather({
+                            hourly,
+                            tomorrow: tomorrowForecast,
+                            dayAfter: dayAfterForecast
+                        });
+                        setLoading(false);
+                    } catch (err) {
+                        setError(true);
+                        setLoading(false);
+                    }
+                };
+                fetchWeather();
+            }, []);
+
+            if (loading) {
+                return (
+                    <div className="flex items-center gap-2 mt-4 pt-3 border-t border-white/10 w-full justify-center">
+                        <div className="w-3.5 h-3.5 border-2 border-emerald-300 border-t-transparent rounded-full animate-spin"></div>
+                        <span className="text-[10px] text-emerald-300/80 uppercase tracking-wider font-bold">Wczytywanie pogody...</span>
+                    </div>
+                );
+            }
+            if (error || !weather) return null;
+
+            return (
+                <div className="w-full text-white mt-3 pt-3 border-t border-white/10 flex flex-col gap-3">
+                    {/* Hourly block */}
+                    <div className="flex justify-around items-center gap-2">
+                        {weather.hourly.map((item, index) => {
+                            const date = new Date(item.dt * 1000);
+                            const hours = String(date.getHours()).padStart(2, '0') + ':00';
+                            const temp = Math.round(item.main.temp);
+                            const icon = item.weather[0].icon;
+                            const desc = item.weather[0].description;
+                            return (
+                                <div key={index} className="flex flex-col items-center min-w-[65px] text-center">
+                                    <span className="opacity-70 text-[9px] uppercase font-black tracking-wider text-emerald-100">{index === 0 ? 'Teraz' : hours}</span>
+                                    <img 
+                                        src={`https://openweathermap.org/img/wn/${icon}@2x.png`} 
+                                        className="w-8 h-8 -my-1" 
+                                        alt={desc} 
+                                        title={desc}
+                                        onError={(e) => { e.target.style.display = 'none'; }}
+                                    />
+                                    <span className="font-extrabold text-xs text-emerald-200">{temp}°C</span>
+                                </div>
+                            );
+                        })}
+                    </div>
+
+                    {/* Daily block (Jutro & Pojutrze) */}
+                    <div className="grid grid-cols-2 gap-2 pt-2 border-t border-white/5 bg-black/20 rounded-2xl p-2 text-center">
+                        {weather.tomorrow && (
+                            <div className="flex items-center justify-center gap-1">
+                                <img 
+                                    src={`https://openweathermap.org/img/wn/${weather.tomorrow.weather[0].icon}@2x.png`} 
+                                    className="w-7 h-7" 
+                                    alt="Jutro"
+                                    onError={(e) => { e.target.style.display = 'none'; }}
+                                />
+                                <div className="text-left">
+                                    <div className="text-[8px] font-black uppercase text-emerald-300 tracking-wider">Jutro</div>
+                                    <div className="text-[11px] font-extrabold leading-none">{Math.round(weather.tomorrow.main.temp)}°C</div>
+                                    <div className="text-[7px] opacity-60 capitalize truncate max-w-[55px]">{weather.tomorrow.weather[0].description}</div>
+                                </div>
+                            </div>
+                        )}
+                        {weather.dayAfter && (
+                            <div className="flex items-center justify-center gap-1">
+                                <img 
+                                    src={`https://openweathermap.org/img/wn/${weather.dayAfter.weather[0].icon}@2x.png`} 
+                                    className="w-7 h-7" 
+                                    alt="Pojutrze"
+                                    onError={(e) => { e.target.style.display = 'none'; }}
+                                />
+                                <div className="text-left">
+                                    <div className="text-[8px] font-black uppercase text-emerald-300 tracking-wider">Pojutrze</div>
+                                    <div className="text-[11px] font-extrabold leading-none">{Math.round(weather.dayAfter.main.temp)}°C</div>
+                                    <div className="text-[7px] opacity-60 capitalize truncate max-w-[55px]">{weather.dayAfter.weather[0].description}</div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
         }
 
         function App() {
@@ -91,7 +215,7 @@
             const [reservations, setReservations] = useState([]);
             const [extraContent, setExtraContent] = useState({ 
                 jadlospis: '', 
-                kontakt: `KOMENDANT ZGRUPOWANIA hm Agnieszka Ciepielewska 502498610\nKWATERMISTRZ phm Jacek Kozieł 501 294668\nCZŁOWIEK OD SPRAW TECHNICZNYCH hm Grzegorz Ciepielewski 502498610\nPIELĘGNIARKA Anna Pedryc 502257241\nOSOBA TECHNICZNO-GOSPODARCZA Jakub Rusajczyk 500230912`, 
+                kontakt: '', 
                 wycieczki: '' 
             });
             const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
@@ -121,7 +245,7 @@
 
             const dailyQuote = useMemo(() => {
                 const dayOfYear = Math.floor((currentTime - new Date(currentTime.getFullYear(), 0, 0)) / (1000 * 60 * 60 * 24));
-                return BP_QUOTES[dayOfYear % BP_QUOTES.length];
+                return ALL_QUOTES[dayOfYear % ALL_QUOTES.length];
             }, [getTodayDateStr(currentTime)]);
 
             const isReservationActive = (date, timeEnd) => {
@@ -171,13 +295,7 @@
                     setReservations(snap.docs.map(d => ({ id: d.id, ...d.data() })));
                 }, (err) => setError("Błąd bazy danych. Sprawdź połączenie."));
                 const unsubContent = window.fb.onSnapshot(contentDoc, (snap) => {
-                    if (snap.exists()) {
-                        const data = snap.data();
-                        setExtraContent(prev => ({ 
-                            ...data, 
-                            kontakt: prev.kontakt 
-                        }));
-                    }
+                    if (snap.exists()) setExtraContent(snap.data());
                 });
                 return () => { unsubRes(); unsubContent(); };
             }, [db, user, appId]);
@@ -195,7 +313,6 @@
                 e.preventDefault();
                 setBookingError(null);
                 if (!user || !db) return;
-
                 const formData = {
                     location: e.target.location.value,
                     group: e.target.group.value,
@@ -256,7 +373,7 @@
                 const cleanInput = passwordInput.trim();
                 const hashedInput = await sha256(cleanInput);
                 
-                if (hashedInput === COMMANDANT_HASH || cleanInput === "1BialyBrzeg1") {
+                if (hashedInput === COMMANDANT_HASH) {
                     setTempJadlospis(extraContent.jadlospis || '');
                     setIsJadlospisEditing(true);
                     setPasswordInput('');
@@ -289,6 +406,7 @@
 
             return (
                 <div className="min-h-screen pb-10 selection:bg-emerald-200">
+                    {/* Header bar with adaptive cover */}
                     <header className="bg-emerald-950 text-white p-8 md:p-24 relative overflow-hidden bg-cover bg-center" style={{ backgroundImage: `url('${IMG_HEADER}')` }}>
                         <div className="absolute inset-0 bg-emerald-950/85 backdrop-blur-[2px]"></div>
                         <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-10 relative z-10">
@@ -297,30 +415,42 @@
                                 <div>
                                     <h1 className="text-5xl md:text-7xl font-black italic tracking-tighter leading-none">BIAŁY BRZEG 2026</h1>
                                     <div className="mt-4 max-w-lg">
-                                        <p className="text-emerald-300 font-bold italic text-lg leading-tight">"{dailyQuote.split(" - ")[0]}"</p>
-                                        <p className="text-emerald-500/60 font-black uppercase tracking-[0.4em] text-[8px] mt-2 italic">{dailyQuote.split(" - ")[1] || "Robert Baden-Powell"}</p>
+                                        <p className="text-emerald-300 font-bold italic text-lg leading-tight">"{dailyQuote.text}"</p>
+                                        <p className="text-emerald-500/60 font-black uppercase tracking-[0.4em] text-[8px] mt-2 italic">{dailyQuote.author}</p>
                                     </div>
                                 </div>
                             </div>
-                            <div className="bg-black/40 p-10 rounded-[3.5rem] text-center border border-white/10 backdrop-blur-3xl min-w-[280px]">
-                                <div className="text-7xl font-mono font-black text-emerald-300 tracking-tighter tabular-nums leading-none">{getTimeStr(currentTime)}</div>
-                                <div className="text-[10px] font-black uppercase tracking-[0.5em] opacity-40 mt-4 italic text-emerald-100">{currentTime.toLocaleDateString('pl-PL', { weekday: 'long', day: 'numeric', month: 'long' })}</div>
+                            <div className="bg-black/40 p-6 md:p-8 rounded-[3rem] text-center border border-white/10 backdrop-blur-3xl min-w-[280px] flex flex-col items-center">
+                                <div className="text-5xl font-mono font-black text-emerald-300 tracking-tighter tabular-nums leading-none">{getTimeStr(currentTime)}</div>
+                                <div className="text-[10px] font-black uppercase tracking-[0.5em] opacity-60 mt-3 italic text-emerald-100">{currentTime.toLocaleDateString('pl-PL', { weekday: 'long', day: 'numeric', month: 'long' })}</div>
+                                
+                                {/* Live hourly and daily weather component */}
+                                <WeatherForecast />
                             </div>
                         </div>
                     </header>
 
+                    {/* Navigation bar container */}
                     <nav className="max-w-6xl mx-auto -mt-10 px-4 sticky top-6 z-40">
                         <div className="bg-white/95 backdrop-blur-md rounded-[2.5rem] shadow-2xl border border-emerald-100 p-2 flex overflow-x-auto no-scrollbar gap-1">
-                            {['home', 'rezerwacje', 'jadlospis', 'wycieczki', 'kontakt'].map(tab => (
+                            {['home', 'rezerwacje', 'jadlospis', 'wycieczki', 'mapka', 'kontakt'].map(tab => (
                                 <button key={tab} onClick={() => setActiveTab(tab)} className={`flex items-center gap-2 px-8 py-5 rounded-[1.8rem] transition-all flex-1 justify-center whitespace-nowrap ${activeTab === tab ? 'bg-emerald-600 text-white shadow-xl scale-[1.02] font-black' : 'text-emerald-900/40 hover:bg-emerald-50 font-bold'}`}>
-                                    <i data-lucide={tab === 'home' ? 'home' : tab === 'rezerwacje' ? 'map-pin' : tab === 'jadlospis' ? 'utensils' : tab === 'wycieczki' ? 'compass' : 'phone'} className="w-4 h-4"></i>
-                                    <span className="text-[10px] uppercase tracking-widest">{tab === 'home' ? 'Start' : tab}</span>
+                                    <i data-lucide={
+                                        tab === 'home' ? 'home' : 
+                                        tab === 'rezerwacje' ? 'map-pin' : 
+                                        tab === 'jadlospis' ? 'utensils' : 
+                                        tab === 'wycieczki' ? 'compass' : 
+                                        tab === 'mapka' ? 'map' : 'phone'
+                                    } className="w-4 h-4"></i>
+                                    <span className="text-[10px] uppercase tracking-widest">{tab === 'mapka' ? 'Mapa' : tab}</span>
                                 </button>
                             ))}
                         </div>
                     </nav>
 
+                    {/* Main content layouts */}
                     <main className="max-w-6xl mx-auto p-6 mt-16">
+                        
                         {/* START TAB */}
                         {activeTab === 'home' && (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-10 animate-in">
@@ -430,6 +560,33 @@
                             </div>
                         )}
 
+                        {/* MAPA TAB */}
+                        {activeTab === 'mapka' && (
+                            <div className="bg-white p-8 md:p-12 rounded-[4.5rem] shadow-xl border border-emerald-100 animate-in text-center">
+                                <div className="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4 text-left">
+                                    <div>
+                                        <h2 className="text-4xl font-black uppercase italic text-emerald-950 leading-none">Plan Stanicy</h2>
+                                        <p className="text-slate-400 font-bold text-[10px] uppercase tracking-[0.5em] mt-3 italic">Biały Brzeg 2026</p>
+                                    </div>
+                                    <button onClick={() => setActiveTab('home')} className="bg-slate-900 text-white px-8 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-800 transition-colors">
+                                        Powrót do aplikacji
+                                    </button>
+                                </div>
+                                
+                                <div className="border-4 border-emerald-100 rounded-[3rem] overflow-hidden bg-slate-50 max-w-4xl mx-auto shadow-inner relative group">
+                                    <img 
+                                        src="https://www.dropbox.com/scl/fi/69o9otia5gqlj9st1uw71/BB2026.png?rlkey=24lpkefyyrjc3u52pnfy5km6r&raw=1" 
+                                        alt="Plan Stanicy Biały Brzeg" 
+                                        className="w-full h-auto object-contain mx-auto"
+                                    />
+                                </div>
+
+                                <button onClick={() => setActiveTab('home')} className="mt-8 font-black uppercase tracking-widest text-slate-400 text-xs hover:text-slate-600 transition-colors">
+                                    Zamknij mapę i wróć
+                                </button>
+                            </div>
+                        )}
+
                         {/* KONTAKT TAB */}
                         {activeTab === 'kontakt' && (
                             <div className="bg-white p-12 rounded-[4.5rem] shadow-xl border border-red-100 animate-in">
@@ -447,10 +604,10 @@
                         )}
                     </main>
 
-                    {/* BOOKING MODAL - RESPONSIVE MOBILE FIX */}
+                    {/* BOOKING MODAL */}
                     {isBookingModalOpen && (
-                        <div className="fixed inset-0 bg-emerald-950/95 backdrop-blur-3xl z-[100] flex items-center justify-center p-2 sm:p-4">
-                            <div className="bg-white w-full max-w-md rounded-[2rem] sm:rounded-[2.5rem] p-5 sm:p-8 shadow-2xl relative overflow-y-auto max-h-[92vh] sm:max-h-[95vh] animate-in">
+                        <div className="fixed inset-0 bg-emerald-950/95 backdrop-blur-3xl z-[100] flex items-center justify-center p-2 sm:p-4 animate-in">
+                            <div className="bg-white w-full max-w-md rounded-[2rem] sm:rounded-[2.5rem] p-5 sm:p-8 shadow-2xl relative overflow-y-auto max-h-[92vh] sm:max-h-[95vh]">
                                 <div className="flex justify-between items-center mb-4 sm:mb-6">
                                     <h2 className="text-xl sm:text-2xl font-black uppercase italic text-emerald-950 leading-none">Zajmij Punkt</h2>
                                     <button onClick={() => { setIsBookingModalOpen(false); setBookingError(null); }} className="w-8 h-8 sm:w-10 sm:h-10 bg-slate-100 rounded-full font-black text-sm flex items-center justify-center">✕</button>
