@@ -435,10 +435,10 @@
                     {/* Navigation bar container */}
                     <nav className="max-w-6xl mx-auto -mt-10 px-4 sticky top-6 z-40">
                         <div className="bg-white/95 backdrop-blur-md rounded-[2.5rem] shadow-2xl border border-emerald-100 p-2 flex overflow-x-auto no-scrollbar gap-1">
-                            {['home', 'rezerwacje', 'jadlospis', 'wycieczki', 'kontakt'].map(tab => (
+                            {['home', 'rezerwacje', 'jadlospis', 'wycieczki', 'mapka', 'kontakt'].map(tab => (
                                 <button key={tab} onClick={() => setActiveTab(tab)} className={`flex items-center gap-2 px-8 py-5 rounded-[1.8rem] transition-all flex-1 justify-center whitespace-nowrap ${activeTab === tab ? 'bg-emerald-600 text-white shadow-xl scale-[1.02] font-black' : 'text-emerald-900/40 hover:bg-emerald-50 font-bold'}`}>
-                                    <i data-lucide={tab === 'home' ? 'home' : tab === 'rezerwacje' ? 'map-pin' : tab === 'jadlospis' ? 'utensils' : tab === 'wycieczki' ? 'compass' : 'phone'} className="w-4 h-4"></i>
-                                    <span className="text-[10px] uppercase tracking-widest">{tab === 'home' ? 'Start' : tab}</span>
+                                    <i data-lucide={tab === 'home' ? 'home' : tab === 'rezerwacje' ? 'map-pin' : tab === 'jadlospis' ? 'utensils' : tab === 'wycieczki' ? 'compass' : tab === 'mapka' ? 'map' : 'phone'} className="w-4 h-4"></i>
+                                    <span className="text-[10px] uppercase tracking-widest">{tab === 'home' ? 'Start' : tab === 'mapka' ? 'Mapka' : tab === 'jadlospis' ? 'Jadłospis' : tab}</span>
                                 </button>
                             ))}
                         </div>
@@ -504,6 +504,7 @@
                             </div>
                         )}
 
+                        {/* JADŁOSPIS TAB */}
                         {activeTab === 'jadlospis' && (
                             <div className="max-w-4xl mx-auto bg-white p-12 rounded-[4.5rem] shadow-2xl text-center border border-orange-100 animate-in">
                                 <h2 className="text-6xl font-black uppercase mb-12 italic text-slate-900 leading-none">Jadłospis</h2>
