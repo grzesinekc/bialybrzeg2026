@@ -56,7 +56,7 @@
             "Ognisko nad rzeką"
         ];
         
-        // Bezpieczny odcisk hasła SHA-256 dla hasła komendanta: "1BialyBrzeg1"
+        // Bezpieczny odcisk hasła SHA-256 dla hasła komendanta"
         const COMMANDANT_HASH = "0b428815a80b88ae4ed358f1276cecbdae7761b78a958731c0ab4f156626b72e";
                 
         const IMG_HEADER = "https://www.dropbox.com/scl/fi/h35st6ucsgr0vfaqk599p/IDENTYFIKATOR_BEZ-TEKSTU.png?rlkey=ql6aybqsctxferab69ozyhha9&st=g6ywzqam&dl=1";
@@ -230,6 +230,11 @@
             const [error, setError] = useState(null);
             const [isInit, setIsInit] = useState(false);
 
+            // Stany dla autoryzowanego usuwania rezerwacji
+            const [reservationToDelete, setReservationToDelete] = useState(null);
+            const [deletePassword, setDeletePassword] = useState('');
+            const [deletePasswordError, setDeletePasswordError] = useState(null);
+
             const appId = typeof __app_id !== 'undefined' ? __app_id : 'stanica-bialy-brzeg';
 
             const getTodayDateStr = (date) => {
@@ -309,7 +314,7 @@
 
             useEffect(() => {
                 if (window.lucide) window.lucide.createIcons();
-            }, [activeTab, isInit, isBookingModalOpen]);
+            }, [activeTab, isInit, isBookingModalOpen, reservationToDelete]);
 
             const handleAdd = async (e) => {
                 e.preventDefault();
@@ -369,6 +374,22 @@
                 const resDoc = window.fb.doc(db, 'artifacts', appId, 'public', 'data', 'reservations', id);
                 await window.fb.deleteDoc(resDoc);
             }
+
+            const handleDeleteWithPassword = async (e) => {
+                e.preventDefault();
+                setDeletePasswordError(null);
+                const cleanInput = deletePassword.trim();
+                const hashedInput = computeSHA256(cleanInput);
+
+                if (hashedInput === COMMANDANT_HASH) {
+                    await deleteReservation(reservationToDelete.id);
+                    setReservationToDelete(null);
+                    setDeletePassword('');
+                } else {
+                    setDeletePassword('');
+                    setDeletePasswordError("Niepoprawne hasło komendanta!");
+                }
+            };
 
             const checkPassword = async (e) => {
                 e.preventDefault();
@@ -473,7 +494,7 @@
                                 </a>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                                    <div className="bg-white p-12 rounded-[4rem] shadow-sm border border-emerald-50 flex flex-col">
+                                    <div className="bg-white p-12 rounded-[4rem] shadow-sm border border-emerald-55 flex flex-col">
                                         <h2 className="text-2xl font-black uppercase italic mb-8 flex items-center gap-4 text-emerald-950 leading-none">
                                             <i data-lucide="calendar" className="text-emerald-600"></i> Grafik
                                         </h2>
@@ -535,35 +556,44 @@
 
                         {/* REZERWACJE TAB */}
                         {activeTab === 'rezerwacje' && (
-                            <div className="bg-white p-12 rounded-[4.5rem] shadow-xl border border-emerald-50 animate-in">
-                                <div className="flex flex-col sm:flex-row justify-between items-center mb-16 gap-10">
+                            <div className="bg-white p-6 sm:p-12 rounded-[3rem] sm:rounded-[4.5rem] shadow-xl border border-emerald-55 animate-in">
+                                <div className="flex flex-col sm:flex-row justify-between items-center mb-10 sm:mb-16 gap-6">
                                     <div>
-                                        <h2 className="text-6xl font-black uppercase italic text-emerald-950 leading-none">Grafik</h2>
-                                        <p className="text-slate-400 font-bold text-[10px] uppercase tracking-[0.5em] mt-4 italic">Zajętość punktów</p>
+                                        <h2 className="text-4xl sm:text-5xl font-black uppercase italic text-emerald-950 leading-none">Grafik</h2>
+                                        <p className="text-slate-400 font-bold text-[10px] uppercase tracking-[0.5em] mt-2 italic">Zajętość punktów</p>
                                     </div>
-                                    <button onClick={() => setIsBookingModalOpen(true)} className="bg-emerald-600 text-white px-10 py-5 rounded-[2rem] font-black text-xs uppercase flex items-center gap-4 tracking-widest active:scale-95 transition-transform">
-                                        <i data-lucide="plus" className="w-5 h-5"></i> Dodaj wpis
+                                    <button onClick={() => setIsBookingModalOpen(true)} className="bg-emerald-600 text-white px-6 py-4 rounded-[1.5rem] font-black text-xs uppercase flex items-center gap-3 tracking-widest active:scale-95 transition-transform">
+                                        <i data-lucide="plus" className="w-4 h-4"></i> Dodaj wpis
                                     </button>
                                 </div>
-                                <div className="space-y-6">
+                                <div className="space-y-4">
                                     {reservations.filter(r => isReservationActive(r.date, r.timeEnd)).length > 0 ? (
                                         reservations.filter(r => isReservationActive(r.date, r.timeEnd)).sort((a,b) => a.date.localeCompare(b.date) || a.timeStart.localeCompare(b.timeStart)).map(res => (
-                                            <div key={res.id} className="flex flex-col md:flex-row justify-between items-center p-10 bg-slate-50 rounded-[3.5rem] border border-emerald-100/40 shadow-sm">
-                                                <div className="text-center md:text-left mb-8 md:mb-0">
-                                                    <div className="font-black text-emerald-950 uppercase text-4xl italic leading-none">{res.location}</div>
-                                                    <div className="flex flex-wrap items-center gap-4 mt-6 justify-center md:justify-start">
-                                                        <span className="bg-white px-6 py-3 rounded-2xl text-lg md:text-xl font-black text-emerald-700 border border-emerald-100 uppercase italic shadow-sm">{res.group}</span>
-                                                        <span className="text-[10px] font-bold text-slate-400 uppercase bg-slate-200/50 px-4 py-1.5 rounded-full">{res.date}</span>
+                                            <div key={res.id} className="flex flex-col md:flex-row justify-between items-center p-6 sm:p-8 bg-slate-50 rounded-[2rem] sm:rounded-[2.5rem] border border-emerald-100/40 shadow-sm gap-4">
+                                                <div className="text-center md:text-left">
+                                                    <div className="font-black text-emerald-950 uppercase text-xl sm:text-2xl italic leading-none">{res.location}</div>
+                                                    <div className="flex flex-wrap items-center gap-3 mt-4 justify-center md:justify-start">
+                                                        <span className="bg-white px-4 py-2 rounded-xl text-sm sm:text-base font-black text-emerald-700 border border-emerald-100 uppercase italic shadow-sm">{res.group}</span>
+                                                        <span className="text-[9px] font-bold text-slate-400 uppercase bg-slate-200/50 px-3 py-1.5 rounded-full">{res.date}</span>
                                                     </div>
                                                 </div>
-                                                <div className="flex items-center gap-10 w-full md:w-auto">
-                                                    <div className="font-mono font-black text-4xl bg-white px-10 py-5 rounded-[2.5rem] text-emerald-900 italic leading-none">{res.timeStart}-{res.timeEnd}</div>
-                                                    <button onClick={() => deleteReservation(res.id)} className="p-6 text-slate-300 hover:text-red-500 font-bold text-4xl transition-colors">✕</button>
+                                                <div className="flex items-center justify-between md:justify-end gap-6 w-full md:w-auto">
+                                                    <div className="font-mono font-black text-xl sm:text-2xl bg-white px-6 py-3 rounded-[1.5rem] text-emerald-900 italic leading-none">{res.timeStart}-{res.timeEnd}</div>
+                                                    <button 
+                                                        onClick={() => {
+                                                            setReservationToDelete(res);
+                                                            setDeletePassword('');
+                                                            setDeletePasswordError(null);
+                                                        }} 
+                                                        className="p-3 text-slate-300 hover:text-red-500 font-bold text-2xl transition-colors"
+                                                    >
+                                                        ✕
+                                                    </button>
                                                 </div>
                                             </div>
                                         ))
                                     ) : (
-                                        <div className="text-center py-40 text-slate-200 font-black uppercase text-5xl italic opacity-30">Grafik pusty</div>
+                                        <div className="text-center py-40 text-slate-200 font-black uppercase text-3xl sm:text-5xl italic opacity-30">Grafik pusty</div>
                                     )}
                                 </div>
                             </div>
@@ -669,6 +699,40 @@
                                     <div className="flex flex-col gap-3 pt-4">
                                         <button type="submit" className="w-full bg-emerald-600 text-white py-4 sm:py-5 rounded-[2rem] font-black uppercase tracking-[0.4em] text-md sm:text-lg italic leading-none">Zatwierdź</button>
                                         <button type="button" onClick={() => setIsBookingModalOpen(false)} className="w-full font-black uppercase text-slate-300 text-[10px]">Anuluj</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* MODAL AUTORYZACJI USUWANIA WPISU */}
+                    {reservationToDelete && (
+                        <div className="fixed inset-0 bg-emerald-950/95 backdrop-blur-3xl z-[110] flex items-center justify-center p-2 sm:p-4 animate-in">
+                            <div className="bg-white w-full max-w-md rounded-[2rem] sm:rounded-[2.5rem] p-6 sm:p-8 shadow-2xl relative">
+                                <div className="flex justify-between items-center mb-4">
+                                    <h2 className="text-xl sm:text-2xl font-black uppercase italic text-red-600 leading-none">Usuń rezerwację</h2>
+                                    <button onClick={() => setReservationToDelete(null)} className="w-8 h-8 sm:w-10 sm:h-10 bg-slate-100 rounded-full font-black text-sm flex items-center justify-center">✕</button>
+                                </div>
+                                <p className="text-xs text-slate-500 font-bold mb-4">
+                                    Aby usunąć rezerwację dla <strong className="text-slate-800">{reservationToDelete.group}</strong> w miejscu <strong className="text-slate-800">{reservationToDelete.location}</strong> ({reservationToDelete.timeStart}-{reservationToDelete.timeEnd}), wprowadź hasło komendanta:
+                                </p>
+                                <form onSubmit={handleDeleteWithPassword} className="space-y-4">
+                                    <input 
+                                        type="password" 
+                                        placeholder="Hasło..." 
+                                        className="w-full p-4 bg-slate-50 rounded-2xl border-2 border-slate-100 font-bold italic outline-none focus:border-emerald-500" 
+                                        value={deletePassword} 
+                                        onChange={e => setDeletePassword(e.target.value)} 
+                                        required 
+                                    />
+                                    {deletePasswordError && (
+                                        <div className="text-red-600 font-black uppercase text-[10px] text-center tracking-wider animate-pulse">
+                                            ❌ {deletePasswordError}
+                                        </div>
+                                    )}
+                                    <div className="flex gap-3">
+                                        <button type="submit" className="flex-1 bg-red-600 text-white py-4 rounded-2xl font-black uppercase tracking-wider text-xs">Potwierdź usunięcie</button>
+                                        <button type="button" onClick={() => setReservationToDelete(null)} className="bg-slate-100 text-slate-500 px-6 py-4 rounded-2xl font-black uppercase text-xs">Anuluj</button>
                                     </div>
                                 </form>
                             </div>
