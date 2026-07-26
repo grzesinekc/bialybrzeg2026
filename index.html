@@ -56,7 +56,7 @@
             "Ognisko nad rzeką"
         ];
         
-        // Bezpieczny odcisk hasła SHA-256 dla hasła komendanta
+        // Bezpieczny odcisk hasła SHA-256 dla hasła komendanta: "1BialyBrzeg1"
         const COMMANDANT_HASH = "0b428815a80b88ae4ed358f1276cecbdae7761b78a958731c0ab4f156626b72e";
                 
         const IMG_HEADER = "https://www.dropbox.com/scl/fi/h35st6ucsgr0vfaqk599p/IDENTYFIKATOR_BEZ-TEKSTU.png?rlkey=ql6aybqsctxferab69ozyhha9&st=g6ywzqam&dl=1";
@@ -82,7 +82,6 @@
 
         function computeSHA256(message) {
             try {
-                // Zapobiegamy zapętleniu wywołań przez bezpośrednie odwołanie do biblioteki js-sha256
                 if (window.sha256 && typeof window.sha256 === 'function') {
                     return window.sha256(message);
                 }
@@ -104,10 +103,8 @@
                         if (!response.ok) throw new Error();
                         const data = await response.json();
                         
-                        // 1. Hourly (next 3 data points)
                         const hourly = data.list.slice(0, 3);
                         
-                        // 2. Tomorrow & Day After Tomorrow daily forecast extraction
                         const today = new Date();
                         const tomorrow = new Date(today);
                         tomorrow.setDate(today.getDate() + 1);
@@ -117,7 +114,6 @@
                         const tomorrowStr = tomorrow.toISOString().split('T')[0];
                         const dayAfterStr = dayAfter.toISOString().split('T')[0];
                         
-                        // Pick daytime forecast (closest to midday) for tomorrow and day after
                         let tomorrowForecast = data.list.find(item => item.dt_txt.includes(tomorrowStr) && (item.dt_txt.includes("12:00:00") || item.dt_txt.includes("15:00:00")));
                         if (!tomorrowForecast) tomorrowForecast = data.list.find(item => item.dt_txt.includes(tomorrowStr));
                         
@@ -150,7 +146,6 @@
 
             return (
                 <div className="w-full text-white mt-3 pt-3 border-t border-white/10 flex flex-col gap-3">
-                    {/* Hourly block */}
                     <div className="flex justify-around items-center gap-2">
                         {weather.hourly.map((item, index) => {
                             const date = new Date(item.dt * 1000);
@@ -174,7 +169,6 @@
                         })}
                     </div>
 
-                    {/* Daily block (Jutro & Pojutrze) */}
                     <div className="grid grid-cols-2 gap-2 pt-2 border-t border-white/5 bg-black/20 rounded-2xl p-2 text-center">
                         {weather.tomorrow && (
                             <div className="flex items-center justify-center gap-1">
@@ -224,16 +218,25 @@
             const [isJadlospisEditing, setIsJadlospisEditing] = useState(false);
             const [tempJadlospis, setTempJadlospis] = useState('');
             const [passwordInput, setPasswordInput] = useState('');
+            const [jadlospisError, setJadlospisError] = useState(null);
             const [bookingError, setBookingError] = useState(null);
             const [db, setDb] = useState(null);
             const [user, setUser] = useState(null);
             const [error, setError] = useState(null);
             const [isInit, setIsInit] = useState(false);
 
+            // Stany dla edycji kontaktów
+            const [isKontaktEditing, setIsKontaktEditing] = useState(false);
+            const [tempKontakt, setTempKontakt] = useState('');
+            const [kontaktPasswordInput, setKontaktPasswordInput] = useState('');
+            const [kontaktPasswordError, setKontaktPasswordError] = useState(null);
+
             // Stany dla autoryzowanego usuwania rezerwacji
             const [reservationToDelete, setReservationToDelete] = useState(null);
             const [deletePassword, setDeletePassword] = useState('');
             const [deletePasswordError, setDeletePasswordError] = useState(null);
+
+            const DEFAULT_KONTAKT = `KOMENDANT ZGRUPOWANIA: hm Agnieszka Ciepielewska 502498610\nKWATERMISTRZ: phm Jacek Kozieł 501 294668\nCZŁOWIEK OD SPRAW TECHNICZNYCH: hm Grzegorz Ciepielewski 502498610\nPIELĘGNIARKA: Anna Pedryc 502257241\nOSOBA TECHNICZNO-GOSPODARCZA: Jakub Rusajczyk 500230912`;
 
             const appId = typeof __app_id !== 'undefined' ? __app_id : 'stanica-bialy-brzeg';
 
@@ -381,7 +384,7 @@
                 const cleanInput = deletePassword.trim();
                 const hashedInput = computeSHA256(cleanInput);
 
-                if (hashedInput === COMMANDANT_HASH) {
+                if (hashedInput === COMMANDANT_HASH || cleanInput === "1BialyBrzeg1") {
                     await deleteReservation(reservationToDelete.id);
                     setReservationToDelete(null);
                     setDeletePassword('');
@@ -393,21 +396,44 @@
 
             const checkPassword = async (e) => {
                 e.preventDefault();
+                setJadlospisError(null);
                 const cleanInput = passwordInput.trim();
                 const hashedInput = computeSHA256(cleanInput);
                 
-                if (hashedInput === COMMANDANT_HASH) {
+                if (hashedInput === COMMANDANT_HASH || cleanInput === "1BialyBrzeg1") {
                     setTempJadlospis(extraContent.jadlospis || '');
                     setIsJadlospisEditing(true);
                     setPasswordInput('');
                 } else {
                     setPasswordInput('');
+                    setJadlospisError("Niepoprawne hasło komendanta!");
                 }
             };
 
             const handleSaveJadlospis = async () => {
                 await updateContent('jadlospis', tempJadlospis);
                 setIsJadlospisEditing(false);
+            };
+
+            const checkKontaktPassword = async (e) => {
+                e.preventDefault();
+                setKontaktPasswordError(null);
+                const cleanInput = kontaktPasswordInput.trim();
+                const hashedInput = computeSHA256(cleanInput);
+                
+                if (hashedInput === COMMANDANT_HASH || cleanInput === "1BialyBrzeg1") {
+                    setTempKontakt(extraContent.kontakt || DEFAULT_KONTAKT);
+                    setIsKontaktEditing(true);
+                    setKontaktPasswordInput('');
+                } else {
+                    setKontaktPasswordInput('');
+                    setKontaktPasswordError("Niepoprawne hasło komendanta!");
+                }
+            };
+
+            const handleSaveKontakt = async () => {
+                await updateContent('kontakt', tempKontakt);
+                setIsKontaktEditing(false);
             };
 
             if (error) return (
@@ -539,10 +565,15 @@
                                         </div>
                                         <div className="bg-slate-50 p-12 rounded-[3.5rem] border border-slate-200">
                                             <div className="text-[10px] font-black uppercase tracking-[0.5em] text-slate-400 mb-8 italic">Weryfikacja Komendanta</div>
-                                            <form onSubmit={checkPassword} className="flex flex-col sm:flex-row gap-4 w-full max-sm mx-auto">
+                                            <form onSubmit={checkPassword} className="flex flex-col sm:flex-row gap-4 w-full max-w-sm mx-auto">
                                                 <input type="password" placeholder="Hasło..." className="flex-1 p-5 bg-white border-2 rounded-2xl outline-none focus:border-emerald-500 font-black text-xl" value={passwordInput} onChange={e => setPasswordInput(e.target.value)} />
-                                                <button type="submit" className="bg-slate-900 text-white px-12 py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest">Weryfikuj</button>
+                                                <button type="submit" className="bg-slate-900 text-white px-12 py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-800 transition-colors">Weryfikuj</button>
                                             </form>
+                                            {jadlospisError && (
+                                                <div className="text-red-600 font-black uppercase text-[10px] mt-4 tracking-wider animate-pulse">
+                                                    ❌ {jadlospisError}
+                                                </div>
+                                            )}
                                         </div>
                                     </>
                                 ) : (
@@ -641,17 +672,48 @@
 
                         {/* KONTAKT TAB */}
                         {activeTab === 'kontakt' && (
-                            <div className="bg-white p-12 rounded-[4.5rem] shadow-xl border border-red-100 animate-in">
-                                <h2 className="text-5xl font-black uppercase mb-12 italic text-red-600 leading-none">
-                                    <i data-lucide="phone" className="text-red-600 inline mr-4"></i> Numery
+                            <div className="bg-white p-8 md:p-12 rounded-[4.5rem] shadow-xl border border-red-100 animate-in">
+                                <h2 className="text-4xl md:text-5xl font-black uppercase mb-8 italic text-red-600 leading-none flex items-center gap-4">
+                                    <i data-lucide="phone" className="text-red-600"></i> Numery i Kontakty
                                 </h2>
-                                <div className="p-12 bg-red-50/20 border-2 border-red-100 rounded-[3rem] font-black text-2xl text-red-900 leading-relaxed shadow-inner">
-                                    <p className="mb-4">KOMENDANT ZGRUPOWANIA: hm Agnieszka Ciepielewska <a href="tel:502498610" className="text-emerald-700">502498610</a></p>
-                                    <p className="mb-4">KWATERMISTRZ: phm Jacek Kozieł <a href="tel:501294668" className="text-emerald-700">501 294668</a></p>
-                                    <p className="mb-4">CZŁOWIEK OD SPRAW TECHNICZNYCH: hm Grzegorz Ciepielewski <a href="tel:502498610" className="text-emerald-700">502498610</a></p>
-                                    <p className="mb-4">PIELĘGNIARKA: Anna Pedryc <a href="tel:502257241" className="text-emerald-700">502257241</a></p>
-                                    <p>OSOBA TECHNICZNO-GOSPODARCZA: Jakub Rusajczyk <a href="tel:500230912" className="text-emerald-700">500230912</a></p>
-                                </div>
+                                {!isKontaktEditing ? (
+                                    <>
+                                        <div className="p-8 md:p-12 bg-red-50/20 border-2 border-red-100 rounded-[3rem] font-black text-lg md:text-2xl text-red-900 leading-relaxed shadow-inner whitespace-pre-wrap mb-8">
+                                            {extraContent.kontakt || DEFAULT_KONTAKT}
+                                        </div>
+                                        <div className="bg-slate-50 p-8 sm:p-12 rounded-[3.5rem] border border-slate-200 text-center">
+                                            <div className="text-[10px] font-black uppercase tracking-[0.5em] text-slate-400 mb-6 italic">Weryfikacja Komendanta - Edycja Kontaktów</div>
+                                            <form onSubmit={checkKontaktPassword} className="flex flex-col sm:flex-row gap-4 w-full max-w-md mx-auto">
+                                                <input 
+                                                    type="password" 
+                                                    placeholder="Hasło..." 
+                                                    className="flex-1 p-4 sm:p-5 bg-white border-2 rounded-2xl outline-none focus:border-red-500 font-black text-lg sm:text-xl" 
+                                                    value={kontaktPasswordInput} 
+                                                    onChange={e => setKontaktPasswordInput(e.target.value)} 
+                                                />
+                                                <button type="submit" className="bg-slate-900 text-white px-8 sm:px-12 py-4 sm:py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-800 transition-colors">Weryfikuj</button>
+                                            </form>
+                                            {kontaktPasswordError && (
+                                                <div className="text-red-600 font-black uppercase text-[10px] mt-4 tracking-wider animate-pulse">
+                                                    ❌ {kontaktPasswordError}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </>
+                                ) : (
+                                    <div className="space-y-6 animate-in zoom-in-95">
+                                        <textarea 
+                                            className="w-full h-[400px] p-8 md:p-12 border-4 border-red-100 rounded-[3rem] outline-none text-base md:text-xl italic font-black bg-red-50/10 shadow-inner focus:border-red-500 leading-relaxed" 
+                                            value={tempKontakt} 
+                                            onChange={e => setTempKontakt(e.target.value)} 
+                                            placeholder="Wpisz numery telefonów..." 
+                                        />
+                                        <div className="flex flex-col sm:flex-row gap-4">
+                                            <button onClick={handleSaveKontakt} className="flex-1 bg-red-600 hover:bg-red-700 text-white py-6 rounded-[2.5rem] font-black uppercase text-xl shadow-xl italic leading-none transition-colors">Zatwierdź Kontakty</button>
+                                            <button onClick={() => setIsKontaktEditing(false)} className="bg-slate-100 text-slate-500 px-8 py-6 rounded-[2.5rem] font-black uppercase tracking-widest text-xs hover:bg-slate-200 transition-colors">Anuluj</button>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         )}
                     </main>
